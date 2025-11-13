@@ -1,0 +1,56 @@
+name: Scheduled Viral Post Scraper (Heroku)
+
+on:
+  schedule:
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
+  
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  scrape-and-sync:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+      
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          npm ci
+      
+      - name: Build TypeScript
+        run: |
+          cd backend
+          npm run build
+      
+      - name: Run scraper and sync metrics
+        env:
+          GOOGLE_AI_KEY: ${{ secrets.GOOGLE_AI_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          NODE_ENV: production
+        run: |
+          cd backend
+          echo "🔍 Starting scheduled scraper..."
+          node dist/scripts/cronScraper.js
+          echo "📊 Syncing metrics to database..."
+          node dist/scripts/syncMetrics.js
+          echo "✅ Scraping completed successfully!"
+      
+      - name: Upload scraping logs
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: scraper-logs
+          path: backend/logs/
+          retention-days: 7
