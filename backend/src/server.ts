@@ -23,8 +23,18 @@ import {
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware
-app.use(cors());
+// Middleware - CORS for Vercel frontend
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://frontend-ggpkj15fb-jkmb2business-9450s-projects.vercel.app',
+    /\.vercel\.app$/,  // Allow all Vercel domains
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger);
