@@ -23,6 +23,9 @@ import {
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust proxy for Heroku
+app.set('trust proxy', 1);
+
 // Middleware - CORS for Vercel frontend
 app.use(cors({
   origin: [
