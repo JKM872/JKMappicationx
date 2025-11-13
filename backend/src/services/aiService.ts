@@ -18,7 +18,7 @@ export async function generateCaptions(
   tone: string = 'engaging'
 ): Promise<{ variations: CaptionVariation[] }> {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
 
     const prompt = `You are a creative social media copywriter specialized in viral content.
 
@@ -107,7 +107,7 @@ export async function generateHashtags(
   count: number = 10
 ): Promise<string[]> {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
 
     const prompt = `Generate ${count} relevant, trending hashtags for the topic: "${topic}"
 
@@ -166,7 +166,7 @@ function extractHashtagsFromText(text: string): string[] {
  */
 export async function suggestPostingTimes(timezone: string = 'UTC'): Promise<string[]> {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
 
     const prompt = `You are a social media strategist. Suggest 3 optimal times to post on Twitter/X for maximum engagement.
 
