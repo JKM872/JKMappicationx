@@ -1,5 +1,5 @@
 import express, { Request, Response } from 'express';
-import { searchAllSources, computeViralScore } from '../services/multiSourceScraper';
+import { searchAllSources, computeViralScore } from '../services/unifiedScraper';
 
 const router = express.Router();
 
@@ -36,16 +36,10 @@ router.get('/search', async (req: Request, res: Response) => {
       posts = posts.filter(p => p.platform === source);
     }
 
-    // Add viral scores and platform icons
+    // Recompute viral scores (already has icon from unifiedScraper)
     const ranked = posts.map(p => ({
       ...p,
-      score: computeViralScore(p),
-      platform_icon: {
-        reddit: '🤖',
-        devto: '👨‍💻',
-        hackernews: '⚡',
-        rss: '📰'
-      }[p.platform]
+      score: computeViralScore(p)
     }));
 
     res.json({ 
@@ -53,7 +47,8 @@ router.get('/search', async (req: Request, res: Response) => {
       data: ranked,
       count: ranked.length,
       query,
-      source: source || 'all'
+      platform: source || 'all',
+      sources: [...new Set(ranked.map(p => p.platform))]
     });
   } catch (err) {
     console.error('Search error:', err);

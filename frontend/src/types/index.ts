@@ -1,11 +1,18 @@
 export interface Post {
+  id?: string;
+  platform?: 'reddit' | 'devto' | 'hackernews' | 'rss';
   content: string;
+  title?: string;
   author: string;
   likes: number;
-  retweets: number;
-  replies: number;
-  hoursAgo: number;
+  retweets?: number;
+  replies?: number;
+  comments?: number;
+  shares?: number;
+  hoursAgo?: number;
+  timestamp?: string | Date;
   postUrl?: string;
+  url?: string;
   authorFollowers?: number;
   score: number;
 }
