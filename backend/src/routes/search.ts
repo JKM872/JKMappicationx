@@ -31,9 +31,9 @@ router.get('/search', async (req: Request, res: Response) => {
     
     let posts = await searchAllSources(query, parsedLimit);
 
-    // Filter by source if specified
-    if (source && source !== 'all') {
-      posts = posts.filter(p => p.platform === source);
+    // Filter by source if specified (case-insensitive)
+    if (source && typeof source === 'string' && source !== 'all') {
+      posts = posts.filter(p => p.platform.toLowerCase() === source.toLowerCase());
     }
 
     // Recompute viral scores (already has icon from unifiedScraper)
