@@ -36,6 +36,8 @@ export async function searchAllSources(
   const redditPosts = results[1].status === 'fulfilled' ? results[1].value : [];
   const devtoPosts = results[2].status === 'fulfilled' ? results[2].value : [];
 
+  console.log(`📊 Results: Twitter=${twitterPosts.length}, Reddit=${redditPosts.length}, Dev.to=${devtoPosts.length}`);
+
   // Konwertuj do unified format
   const unified: UnifiedPost[] = [
     ...convertTwitterPosts(twitterPosts),
