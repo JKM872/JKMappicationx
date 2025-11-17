@@ -18,7 +18,13 @@ export async function generateCaptions(
   tone: string = 'engaging'
 ): Promise<{ variations: CaptionVariation[] }> {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+    const model = genAI.getGenerativeModel({ 
+      model: 'gemini-2.5-flash',
+      generationConfig: {
+        temperature: 0.9,
+        maxOutputTokens: 2048,
+      }
+    });
 
     const prompt = `You are a creative social media copywriter specialized in viral content.
 
@@ -45,17 +51,25 @@ Format your response as valid JSON:
   ]
 }`;
 
-    const result = await model.generateContent(prompt);
+    // Add timeout protection (25 seconds max)
+    const resultPromise = model.generateContent(prompt);
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('AI timeout after 25s')), 25000)
+    );
+    
+    const result = await Promise.race([resultPromise, timeoutPromise]) as any;
     const responseText = result.response.text();
 
     // Try to extract JSON from the response
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
+      console.log(`✅ AI: Generated ${parsed.variations?.length || 0} captions`);
       return parsed;
     }
 
     // Fallback: return raw text as single variation
+    console.warn('⚠️ AI: Could not parse JSON, using raw text');
     return {
       variations: [
         {
@@ -66,7 +80,7 @@ Format your response as valid JSON:
       ],
     };
   } catch (error) {
-    console.error('Error generating captions:', error);
+    console.error('❌ AI error:', error instanceof Error ? error.message : error);
     
     // Fallback to demo data if API fails
     return {
@@ -107,7 +121,13 @@ export async function generateHashtags(
   count: number = 10
 ): Promise<string[]> {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+    const model = genAI.getGenerativeModel({ 
+      model: 'gemini-2.5-flash',
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 512,
+      }
+    });
 
     const prompt = `Generate ${count} relevant, trending hashtags for the topic: "${topic}"
 

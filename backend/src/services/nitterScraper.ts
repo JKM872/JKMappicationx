@@ -2,14 +2,21 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 
 // Lista publicznych instancji Nitter (failover) - updated 11/2025
+// Używamy tylko tych które działają + dodajemy alternatywy
 const NITTER_INSTANCES = [
-  'https://nitter.privacytools.io',
-  'https://nitter.cz',
-  'https://nitter.eu.projectsegfau.lt',
-  'https://nitter.sneed.network',
-  'https://nitter.bird.froth.zone',
-  'https://nitter.ktachibana.party',
-  'https://nitter.fdn.fr'
+  'https://nitter.poast.org',
+  'https://nitter.privacydev.net', 
+  'https://nitter.net',
+  'https://nitter.unixfox.eu',
+  'https://nitter.moomoo.me',
+  'https://twitter.076.ne.jp',
+  'https://nitter.ir'
+];
+
+// Twitter RSS jako backup (publiczne trendy bez scrapowania)
+const TWITTER_RSS_FEEDS = [
+  'https://nitter.net/search/rss?q=%23trending',
+  'https://nitter.poast.org/search/rss?q=%23viral'
 ];
 
 let currentInstanceIndex = 0;
@@ -49,6 +56,7 @@ async function tryInstance(instance: string, query: string): Promise<TwitterPost
     const response = await axios.get(
       `${instance}/search?q=${encodeURIComponent(query)}&f=top`,
       {
+        validateStatus: (status) => status < 500, // Accept 4xx but retry 5xx
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -61,6 +69,12 @@ async function tryInstance(instance: string, query: string): Promise<TwitterPost
         maxRedirects: 5
       }
     );
+    
+    // Skip rate limits and access denied
+    if (response.status === 403 || response.status === 429 || response.status === 503) {
+      console.warn(`⚠️ Nitter ${instance}: ${response.status} - trying next`);
+      return [];
+    }
 
     const $ = cheerio.load(response.data);
     const posts: TwitterPost[] = [];

@@ -14,27 +14,83 @@ export interface RedditPost {
   score: number;
 }
 
+// Multiple User-Agents for rotation
+const USER_AGENTS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0'
+];
+
+function getRandomUserAgent(): string {
+  return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+}
+
 export async function scrapeReddit(query: string, limit: number = 20): Promise<RedditPost[]> {
   try {
     console.log(`🤖 Scraping Reddit for: "${query}"`);
 
-    const response = await axios.get(
-      `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&sort=top&t=week&limit=${Math.min(limit, 100)}`,
-      {
+    // Try old.reddit.com first (less restrictions)
+    let url = `https://old.reddit.com/search.json?q=${encodeURIComponent(query)}&sort=top&t=week&limit=${Math.min(limit, 100)}`;
+    
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': getRandomUserAgent(),
+        'Accept': 'application/json, text/html, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Referer': 'https://old.reddit.com/',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Cache-Control': 'max-age=0'
+      },
+      timeout: 15000,
+      validateStatus: (status) => status < 500
+    });
+    
+    // If 403, try www.reddit.com as fallback
+    if (response.status === 403) {
+      console.warn('⚠️ old.reddit.com blocked, trying www.reddit.com');
+      url = `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&sort=top&t=week&limit=${Math.min(limit, 100)}`;
+      const fallbackResponse = await axios.get(url, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+          'User-Agent': getRandomUserAgent(),
+          'Accept': 'application/json',
+          'Referer': 'https://www.reddit.com/'
         },
-        timeout: 10000
+        timeout: 15000
+      });
+      
+      if (fallbackResponse.status !== 200) {
+        console.warn('⚠️ Reddit: Both endpoints blocked');
+        return [];
       }
-    );
+      
+      return parseRedditResponse(fallbackResponse.data, query);
+    }
+    
+    return parseRedditResponse(response.data, query);
+  } catch (err) {
+    console.error('❌ Reddit error:', err instanceof Error ? err.message : err);
+    return [];
+  }
+}
 
-    if (!response.data?.data?.children) {
-      console.warn('⚠️ Reddit: No data returned');
+function parseRedditResponse(data: any, query: string): RedditPost[] {
+  try {
+
+    if (!data?.data?.children) {
+      console.warn('⚠️ Reddit: No data in response');
       return [];
     }
 
-    const posts = response.data.data.children
-      .filter((item: any) => item.data.score > 50)
+    const posts = data.data.children
+      .filter((item: any) => item.data && item.data.score > 30) // Lowered threshold
       .map((item: any) => {
         const post = item.data;
         return {
@@ -55,7 +111,7 @@ export async function scrapeReddit(query: string, limit: number = 20): Promise<R
     console.log(`✅ Reddit: Found ${posts.length} posts`);
     return posts;
   } catch (err) {
-    console.error('❌ Reddit error:', err instanceof Error ? err.message : err);
+    console.error('❌ Reddit parsing error:', err instanceof Error ? err.message : err);
     return [];
   }
 }
