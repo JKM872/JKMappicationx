@@ -31,7 +31,7 @@ export async function scrapeReddit(query: string, limit: number = 20): Promise<R
   try {
     console.log(`🤖 Scraping Reddit for: "${query}"`);
 
-    // Try old.reddit.com first (less restrictions)
+    // Strategy: Try JSON endpoints, if all fail use RSS as ultimate fallback
     let url = `https://old.reddit.com/search.json?q=${encodeURIComponent(query)}&sort=top&t=week&limit=${Math.min(limit, 100)}`;
     
     const response = await axios.get(url, {
@@ -57,23 +57,30 @@ export async function scrapeReddit(query: string, limit: number = 20): Promise<R
     if (response.status === 403) {
       console.warn('⚠️ old.reddit.com blocked, trying www.reddit.com');
       url = `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&sort=top&t=week&limit=${Math.min(limit, 100)}`;
-      const fallbackResponse = await axios.get(url, {
-        headers: {
-          'User-Agent': getRandomUserAgent(),
-          'Accept': 'application/json',
-          'Referer': 'https://www.reddit.com/'
-        },
-        timeout: 15000
-      });
-      
-      if (fallbackResponse.status !== 200) {
-        console.warn('⚠️ Reddit: Both endpoints blocked');
-        return [];
+      try {
+        const fallbackResponse = await axios.get(url, {
+          headers: {
+            'User-Agent': getRandomUserAgent(),
+            'Accept': 'application/json',
+            'Referer': 'https://www.reddit.com/'
+          },
+          timeout: 15000,
+          validateStatus: (s) => s < 500
+        });
+
+        if (fallbackResponse.status === 200 && fallbackResponse.data) {
+          return parseRedditResponse(fallbackResponse.data, query);
+        }
+      } catch (e) {
+        console.warn('⚠️ reddit JSON endpoints blocked on this host, will try RSS fallback');
       }
-      
-      return parseRedditResponse(fallbackResponse.data, query);
+
+      // Final fallback: RSS
+      const rssPosts = await fetchRedditRssFallback(query, limit);
+      return rssPosts;
     }
-    
+
+    // Normal path
     return parseRedditResponse(response.data, query);
   } catch (err) {
     console.error('❌ Reddit error:', err instanceof Error ? err.message : err);
@@ -112,6 +119,46 @@ function parseRedditResponse(data: any, query: string): RedditPost[] {
     return posts;
   } catch (err) {
     console.error('❌ Reddit parsing error:', err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
+// RSS fallback using Reddit's RSS search (if JSON endpoints blocked)
+async function fetchRedditRssFallback(query: string, limit: number): Promise<RedditPost[]> {
+  try {
+    const rssUrl = `https://www.reddit.com/search.rss?q=${encodeURIComponent(query)}&limit=${Math.min(limit, 100)}`;
+    console.log(`🔁 Reddit RSS fallback: ${rssUrl}`);
+    const res = await axios.get(rssUrl, {
+      headers: {
+        'User-Agent': getRandomUserAgent(),
+        'Accept': 'application/rss+xml, application/xml;q=0.9, */*;q=0.8'
+      },
+      timeout: 12000,
+      validateStatus: (s) => s < 500
+    });
+
+    if (!res.data) return [];
+
+    // Simple XML parse via regex for titles/links (lightweight)
+    const items = Array.from(res.data.matchAll(/<item>[\s\S]*?<title>([\s\S]*?)<\/title>[\s\S]*?<link>([\s\S]*?)<\/link>[\s\S]*?<pubDate>([\s\S]*?)<\/pubDate>[\s\S]*?<author>([\s\S]*?)<\/author>/g));
+    const posts: RedditPost[] = items.slice(0, limit).map((m: any, idx: number) => ({
+      id: `rss-${Date.now()}-${idx}`,
+      platform: 'Reddit',
+      title: (m[1] || '').replace(/<[^>]+>/g, ''),
+      content: '',
+      author: (m[4] || '').replace(/<[^>]+>/g, ''),
+      likes: 0,
+      comments: 0,
+      url: (m[2] || '').trim(),
+      timestamp: new Date(m[3] || Date.now()).toISOString(),
+      subreddit: '',
+      score: 0
+    }));
+
+    console.log(`✅ Reddit RSS fallback: Found ${posts.length} posts`);
+    return posts;
+  } catch (err) {
+    console.error('❌ Reddit RSS fallback error:', err instanceof Error ? err.message : err);
     return [];
   }
 }
