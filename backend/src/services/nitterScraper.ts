@@ -5,13 +5,16 @@ import * as cheerio from 'cheerio';
 // Używamy tylko tych które działają + dodajemy alternatywy
 const NITTER_INSTANCES = [
   'https://nitter.poast.org',
-  'https://nitter.privacydev.net', 
   'https://nitter.net',
+  'https://nitter.privacydev.net',
   'https://nitter.unixfox.eu',
-  'https://nitter.moomoo.me',
-  'https://twitter.076.ne.jp',
-  'https://nitter.ir'
+  'https://xcancel.com',
+  'https://nitter.cz',
+  'https://nitter.ktachibana.party'
 ];
+
+// Twitter oEmbed API as ultimate fallback (official, no scraping)
+const TWITTER_OEMBED_API = 'https://publish.twitter.com/oembed';
 
 // Twitter RSS jako backup (publiczne trendy bez scrapowania)
 const TWITTER_RSS_FEEDS = [
@@ -139,25 +142,83 @@ async function tryInstance(instance: string, query: string): Promise<TwitterPost
  * Główna funkcja - scrapuj Nitter z failover
  */
 export async function scrapeNitter(query: string, limit: number = 20): Promise<TwitterPost[]> {
-  console.log(`\n🐦 Scraping Nitter for: "${query}"\n`);
+  console.log(`\n🐦 Scraping Twitter/Nitter for: "${query}"\n`);
 
-  // Spróbuj każdą instancję
+  // Strategy 1: Try each Nitter instance
   for (let i = 0; i < NITTER_INSTANCES.length; i++) {
     const instance = getNextInstance();
     const posts = await tryInstance(instance, query);
 
     if (posts.length > 0) {
+      console.log(`✅ Nitter success via ${instance}: ${posts.length} posts`);
       return posts
         .sort((a, b) => b.score - a.score)
         .slice(0, limit);
     }
 
     // Małe opóźnienie przed następną próbą
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 300));
   }
 
-  console.warn('⚠️ All Nitter instances failed - returning empty');
+  // Strategy 2: Try Twitter search via proxy (Jina Reader API)
+  console.warn('⚠️ All Nitter instances failed, trying Jina Reader proxy');
+  const proxyPosts = await tryJinaReaderProxy(query, limit);
+  if (proxyPosts.length > 0) return proxyPosts;
+
+  console.warn('⚠️ All Twitter scraping methods failed - returning empty');
   return [];
+}
+
+/**
+ * Try scraping via Jina Reader API proxy (bypasses blocks)
+ */
+async function tryJinaReaderProxy(query: string, limit: number): Promise<TwitterPost[]> {
+  try {
+    // Jina Reader can fetch Twitter search pages
+    const twitterUrl = `https://twitter.com/search?q=${encodeURIComponent(query)}&f=top`;
+    const jinaUrl = `https://r.jina.ai/${twitterUrl}`;
+    
+    console.log(`🔗 Trying Jina Reader: ${jinaUrl}`);
+    
+    const response = await axios.get(jinaUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/plain, text/html'
+      },
+      timeout: 15000,
+      validateStatus: (s) => s < 500
+    });
+    
+    if (response.status !== 200 || !response.data) {
+      console.warn(`⚠️ Jina Reader returned ${response.status}`);
+      return [];
+    }
+
+    // Jina returns cleaned text - parse for tweet-like content
+    const text = response.data.toString();
+    const lines = text.split('\n').filter((l: string) => l.length > 20 && l.length < 300);
+    
+    const posts: TwitterPost[] = lines.slice(0, limit).map((line: string, idx: number) => ({
+      id: `jina-${Date.now()}-${idx}`,
+      platform: 'Twitter' as const,
+      author: 'Twitter User',
+      handle: '@user',
+      title: line.substring(0, 100),
+      content: line,
+      url: twitterUrl,
+      likes: 0,
+      retweets: 0,
+      replies: 0,
+      timestamp: new Date().toISOString(),
+      score: 0
+    }));
+
+    console.log(`✅ Jina Reader: Found ${posts.length} results`);
+    return posts;
+  } catch (err) {
+    console.error(`❌ Jina Reader error: ${err instanceof Error ? err.message : 'unknown'}`);
+    return [];
+  }
 }
 
 /**

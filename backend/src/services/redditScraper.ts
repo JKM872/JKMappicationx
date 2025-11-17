@@ -27,61 +27,63 @@ function getRandomUserAgent(): string {
   return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
 }
 
+// Alternative Reddit frontends for fallback
+const REDDIT_ALTERNATIVES = [
+  'https://old.reddit.com',
+  'https://teddit.net',
+  'https://libreddit.spike.codes'
+];
+
 export async function scrapeReddit(query: string, limit: number = 20): Promise<RedditPost[]> {
   try {
     console.log(`🤖 Scraping Reddit for: "${query}"`);
 
-    // Strategy: Try JSON endpoints, if all fail use RSS as ultimate fallback
-    let url = `https://old.reddit.com/search.json?q=${encodeURIComponent(query)}&sort=top&t=week&limit=${Math.min(limit, 100)}`;
-    
-    const response = await axios.get(url, {
-      headers: {
-        'User-Agent': getRandomUserAgent(),
-        'Accept': 'application/json, text/html, */*',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Referer': 'https://old.reddit.com/',
-        'DNT': '1',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none',
-        'Cache-Control': 'max-age=0'
-      },
-      timeout: 15000,
-      validateStatus: (status) => status < 500
-    });
-    
-    // If 403, try www.reddit.com as fallback
-    if (response.status === 403) {
-      console.warn('⚠️ old.reddit.com blocked, trying www.reddit.com');
-      url = `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&sort=top&t=week&limit=${Math.min(limit, 100)}`;
+    // Strategy 1: Try multiple Reddit JSON endpoints
+    for (const baseUrl of REDDIT_ALTERNATIVES) {
       try {
-        const fallbackResponse = await axios.get(url, {
+        const url = `${baseUrl}/search.json?q=${encodeURIComponent(query)}&sort=top&t=week&limit=${Math.min(limit, 100)}`;
+    
+        const response = await axios.get(url, {
           headers: {
             'User-Agent': getRandomUserAgent(),
-            'Accept': 'application/json',
-            'Referer': 'https://www.reddit.com/'
+            'Accept': 'application/json, text/html, */*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Referer': baseUrl,
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Cache-Control': 'max-age=0'
           },
-          timeout: 15000,
-          validateStatus: (s) => s < 500
+          timeout: 10000,
+          validateStatus: (status) => status < 500
         });
-
-        if (fallbackResponse.status === 200 && fallbackResponse.data) {
-          return parseRedditResponse(fallbackResponse.data, query);
+    
+        if (response.status === 200 && response.data?.data?.children) {
+          const posts = parseRedditResponse(response.data, query);
+          if (posts.length > 0) {
+            console.log(`✅ Reddit via ${baseUrl}: ${posts.length} posts`);
+            return posts;
+          }
         }
-      } catch (e) {
-        console.warn('⚠️ reddit JSON endpoints blocked on this host, will try RSS fallback');
+        
+        console.warn(`⚠️ ${baseUrl} returned ${response.status}, trying next...`);
+      } catch (err) {
+        console.warn(`❌ ${baseUrl} failed: ${err instanceof Error ? err.message : 'unknown'}`);
       }
-
-      // Final fallback: RSS
-      const rssPosts = await fetchRedditRssFallback(query, limit);
-      return rssPosts;
     }
 
-    // Normal path
-    return parseRedditResponse(response.data, query);
+    // Strategy 2: RSS fallback
+    console.warn('⚠️ All JSON endpoints failed, trying RSS fallback');
+    const rssPosts = await fetchRedditRssFallback(query, limit);
+    if (rssPosts.length > 0) return rssPosts;
+    
+    // Strategy 3: Pushshift API (historical data)
+    console.warn('⚠️ RSS failed, trying Pushshift API');
+    return await fetchPushshiftFallback(query, limit);
   } catch (err) {
     console.error('❌ Reddit error:', err instanceof Error ? err.message : err);
     return [];
@@ -119,6 +121,41 @@ function parseRedditResponse(data: any, query: string): RedditPost[] {
     return posts;
   } catch (err) {
     console.error('❌ Reddit parsing error:', err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
+// Pushshift API fallback (historical Reddit data)
+async function fetchPushshiftFallback(query: string, limit: number): Promise<RedditPost[]> {
+  try {
+    const url = `https://api.pushshift.io/reddit/search/submission/?q=${encodeURIComponent(query)}&size=${Math.min(limit, 100)}&sort=desc&sort_type=score`;
+    console.log(`🔁 Pushshift API: ${url}`);
+    const res = await axios.get(url, {
+      headers: { 'User-Agent': getRandomUserAgent() },
+      timeout: 10000,
+      validateStatus: (s) => s < 500
+    });
+
+    if (!res.data?.data) return [];
+
+    const posts: RedditPost[] = res.data.data.slice(0, limit).map((item: any, idx: number) => ({
+      id: `pushshift-${item.id || idx}`,
+      platform: 'Reddit' as const,
+      title: item.title || '',
+      content: item.selftext?.substring(0, 500) || item.title || '',
+      author: item.author || 'unknown',
+      likes: item.score || 0,
+      comments: item.num_comments || 0,
+      url: item.full_link || `https://reddit.com${item.permalink || ''}`,
+      timestamp: new Date((item.created_utc || 0) * 1000).toISOString(),
+      subreddit: item.subreddit || '',
+      score: (item.score || 0) + (item.num_comments || 0) * 2
+    }));
+
+    console.log(`✅ Pushshift: Found ${posts.length} posts`);
+    return posts;
+  } catch (err) {
+    console.error(`❌ Pushshift error: ${err instanceof Error ? err.message : 'unknown'}`);
     return [];
   }
 }
