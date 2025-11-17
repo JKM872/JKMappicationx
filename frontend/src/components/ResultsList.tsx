@@ -48,8 +48,12 @@ export function ResultsList({ posts, onSelectPost, loading = false }: ResultsLis
   };
 
   const platformConfig = {
+    Twitter: { name: '𝕏 Twitter', color: 'bg-slate-50 border-slate-200', badge: 'bg-black' },
+    Reddit: { name: '🤖 Reddit', color: 'bg-orange-50 border-orange-200', badge: 'bg-orange-500' },
+    'Dev.to': { name: '👨‍💻 Dev.to', color: 'bg-purple-50 border-purple-200', badge: 'bg-purple-600' },
+    devto: { name: '👨‍💻 Dev.to', color: 'bg-purple-50 border-purple-200', badge: 'bg-purple-600' },
     reddit: { name: '🤖 Reddit', color: 'bg-orange-50 border-orange-200', badge: 'bg-orange-500' },
-    devto: { name: '👨‍💻 Dev.to', color: 'bg-blue-50 border-blue-200', badge: 'bg-blue-600' },
+    twitter: { name: '𝕏 Twitter', color: 'bg-slate-50 border-slate-200', badge: 'bg-black' },
     hackernews: { name: '⚡ Hacker News', color: 'bg-amber-50 border-amber-200', badge: 'bg-amber-600' },
     rss: { name: '📰 RSS Feed', color: 'bg-gray-50 border-gray-200', badge: 'bg-gray-600' },
   };

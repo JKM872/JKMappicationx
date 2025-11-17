@@ -8,6 +8,7 @@ interface SearchBarProps {
 
 export function SearchBar({ onResults }: SearchBarProps) {
   const [query, setQuery] = useState('');
+  const [platform, setPlatform] = useState('all');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -25,7 +26,7 @@ export function SearchBar({ onResults }: SearchBarProps) {
     try {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
       const res = await axios.get(`${apiUrl}/api/search`, {
-        params: { query, limit: 30 },
+        params: { query, limit: 30, platform },
       });
 
       if (res.data.success) {
@@ -56,6 +57,17 @@ export function SearchBar({ onResults }: SearchBarProps) {
             className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-gray-800 text-sm"
             disabled={loading}
           />
+          <select
+            value={platform}
+            onChange={(e) => setPlatform(e.target.value)}
+            className="px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-gray-800 text-sm bg-white"
+            disabled={loading}
+          >
+            <option value="all">🌐 All Platforms</option>
+            <option value="twitter">𝕏 Twitter</option>
+            <option value="reddit">🤖 Reddit</option>
+            <option value="devto">👨‍💻 Dev.to</option>
+          </select>
           <button
             type="submit"
             disabled={loading || !query.trim()}
