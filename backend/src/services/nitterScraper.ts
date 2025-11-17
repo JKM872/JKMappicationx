@@ -1,14 +1,15 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 
-// Lista publicznych instancji Nitter (failover)
+// Lista publicznych instancji Nitter (failover) - updated 11/2025
 const NITTER_INSTANCES = [
-  'https://nitter.net',
-  'https://nitter.privacydev.net',
-  'https://nitter.poast.org',
-  'https://nitter.1d4.us',
-  'https://xcancel.com',
-  'https://nitter.woodland.cafe'
+  'https://nitter.privacytools.io',
+  'https://nitter.cz',
+  'https://nitter.eu.projectsegfau.lt',
+  'https://nitter.sneed.network',
+  'https://nitter.bird.froth.zone',
+  'https://nitter.ktachibana.party',
+  'https://nitter.fdn.fr'
 ];
 
 let currentInstanceIndex = 0;
