@@ -30,18 +30,28 @@ function getRandomUserAgent(): string {
 // Alternative Reddit frontends for fallback
 const REDDIT_ALTERNATIVES = [
   'https://old.reddit.com',
-  'https://teddit.net',
-  'https://libreddit.spike.codes'
+  'https://www.reddit.com',
+  'https://teddit.net'
 ];
+
+// Use proxy for blocked IPs (optional - only if SCRAPER_API_KEY set)
+function getProxiedUrl(url: string): string {
+  const apiKey = process.env.SCRAPER_API_KEY;
+  if (apiKey) {
+    return `http://api.scraperapi.com?api_key=${apiKey}&url=${encodeURIComponent(url)}`;
+  }
+  return url;
+}
 
 export async function scrapeReddit(query: string, limit: number = 20): Promise<RedditPost[]> {
   try {
     console.log(`🤖 Scraping Reddit for: "${query}"`);
 
-    // Strategy 1: Try multiple Reddit JSON endpoints
+    // Strategy 1: Try multiple Reddit JSON endpoints (with optional proxy)
     for (const baseUrl of REDDIT_ALTERNATIVES) {
       try {
-        const url = `${baseUrl}/search.json?q=${encodeURIComponent(query)}&sort=top&t=week&limit=${Math.min(limit, 100)}`;
+        let url = `${baseUrl}/search.json?q=${encodeURIComponent(query)}&sort=top&t=week&limit=${Math.min(limit, 100)}`;
+        url = getProxiedUrl(url);
     
         const response = await axios.get(url, {
           headers: {
@@ -76,12 +86,37 @@ export async function scrapeReddit(query: string, limit: number = 20): Promise<R
       }
     }
 
-    // Strategy 2: RSS fallback
-    console.warn('⚠️ All JSON endpoints failed, trying RSS fallback');
+    // Strategy 2: Try via simple proxy (reddit.com/.json endpoint with different UA)
+    console.warn('⚠️ All frontend endpoints failed, trying direct .json with aggressive headers');
+    try {
+      const directUrl = `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&limit=${Math.min(limit, 100)}&sort=top&t=week`;
+      const directResponse = await axios.get(directUrl, {
+        headers: {
+          'User-Agent': 'curl/7.68.0',
+          'Accept': 'application/json',
+          'Accept-Encoding': 'gzip'
+        },
+        timeout: 10000,
+        validateStatus: (s) => s < 500
+      });
+      
+      if (directResponse.status === 200 && directResponse.data?.data?.children) {
+        const posts = parseRedditResponse(directResponse.data, query);
+        if (posts.length > 0) {
+          console.log(`✅ Reddit via direct JSON: ${posts.length} posts`);
+          return posts;
+        }
+      }
+    } catch (err) {
+      console.warn(`❌ Direct JSON failed: ${err instanceof Error ? err.message : 'unknown'}`);
+    }
+    
+    // Strategy 3: RSS fallback
+    console.warn('⚠️ Direct JSON failed, trying RSS fallback');
     const rssPosts = await fetchRedditRssFallback(query, limit);
     if (rssPosts.length > 0) return rssPosts;
     
-    // Strategy 3: Pushshift API (historical data)
+    // Strategy 4: Pushshift API (historical data)
     console.warn('⚠️ RSS failed, trying Pushshift API');
     return await fetchPushshiftFallback(query, limit);
   } catch (err) {

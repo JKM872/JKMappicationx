@@ -35,6 +35,11 @@ export async function searchAllSources(
   const twitterPosts = results[0].status === 'fulfilled' ? results[0].value : [];
   const redditPosts = results[1].status === 'fulfilled' ? results[1].value : [];
   const devtoPosts = results[2].status === 'fulfilled' ? results[2].value : [];
+  
+  // Log failures for debugging
+  if (results[0].status === 'rejected') console.error('❌ Twitter scraper rejected:', results[0].reason);
+  if (results[1].status === 'rejected') console.error('❌ Reddit scraper rejected:', results[1].reason);
+  if (results[2].status === 'rejected') console.error('❌ Dev.to scraper rejected:', results[2].reason);
 
   console.log(`📊 Results: Twitter=${twitterPosts.length}, Reddit=${redditPosts.length}, Dev.to=${devtoPosts.length}`);
 

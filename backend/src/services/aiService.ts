@@ -51,33 +51,84 @@ Format your response as valid JSON:
   ]
 }`;
 
-    // Add timeout protection (25 seconds max)
+    // Add timeout protection (30 seconds max - Gemini 2.5 needs more time)
     const resultPromise = model.generateContent(prompt);
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('AI timeout after 25s')), 25000)
+      setTimeout(() => reject(new Error('AI timeout after 30s')), 30000)
     );
     
     const result = await Promise.race([resultPromise, timeoutPromise]) as any;
     const responseText = result.response.text();
 
-    // Try to extract JSON from the response
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      console.log(`✅ AI: Generated ${parsed.variations?.length || 0} captions`);
+    // Strategy 1: Try extracting JSON with multiple patterns
+    let parsed = null;
+    
+    // Try full JSON match
+    const fullMatch = responseText.match(/\{[\s\S]*"variations"[\s\S]*\}/);
+    if (fullMatch) {
+      try {
+        parsed = JSON.parse(fullMatch[0]);
+      } catch (e) {
+        console.warn('⚠️ AI: Full JSON parse failed, trying cleanup');
+      }
+    }
+    
+    // Try with markdown removal
+    if (!parsed) {
+      const cleaned = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      const cleanMatch = cleaned.match(/\{[\s\S]*\}/);
+      if (cleanMatch) {
+        try {
+          parsed = JSON.parse(cleanMatch[0]);
+        } catch (e) {
+          console.warn('⚠️ AI: Cleaned JSON parse failed');
+        }
+      }
+    }
+    
+    if (parsed && parsed.variations && parsed.variations.length > 0) {
+      console.log(`✅ AI: Generated ${parsed.variations.length} captions`);
       return parsed;
     }
 
-    // Fallback: return raw text as single variation
-    console.warn('⚠️ AI: Could not parse JSON, using raw text');
+    // Strategy 2: Try parsing raw response as variations
+    console.warn('⚠️ AI: Could not parse JSON, trying raw text extraction');
+    const lines = responseText.split('\n').filter((l: string) => l.trim().length > 20 && l.trim().length < 280);
+    if (lines.length > 0) {
+      const variations = lines.slice(0, 4).map((line: string) => ({
+        text: line.trim().replace(/^[\d\.\-\*]+\s*/, '').substring(0, 240),
+        hashtags: extractHashtagsFromText(topic),
+        reason: 'AI-generated from response text'
+      }));
+      console.log(`✅ AI: Extracted ${variations.length} captions from raw text`);
+      return { variations };
+    }
+    
+    // Strategy 3: Return enhanced fallback templates
+    console.warn('⚠️ AI: Using enhanced fallback templates');
     return {
       variations: [
         {
-          text: responseText.substring(0, 240),
-          hashtags: extractHashtagsFromText(topic),
-          reason: 'AI-generated content',
+          text: `🔥 ${topic} is changing the game! Here's what you need to know right now 👇`,
+          hashtags: ['#ViralContent', '#ContentCreation', '#Trending', '#MustSee', '#Viral'],
+          reason: 'Urgency + curiosity gap = high engagement'
         },
-      ],
+        {
+          text: `💡 Just discovered this about ${topic}... Why didn't anyone tell me sooner?`,
+          hashtags: ['#Discovery', '#GameChanger', '#ProTip', '#MindBlown', '#Learn'],
+          reason: 'Personal discovery + FOMO trigger'
+        },
+        {
+          text: `${topic}: The truth nobody talks about. Thread 🧵`,
+          hashtags: ['#Thread', '#Truth', '#Exposed', '#RealTalk', '#MustRead'],
+          reason: 'Controversy + thread format = shares'
+        },
+        {
+          text: `Stop scrolling! This ${topic} hack will save you hours ⚡`,
+          hashtags: ['#LifeHack', '#Productivity', '#TimeSaver', '#Hack', '#Efficiency'],
+          reason: 'Pattern interrupt + time-saving value'
+        }
+      ]
     };
   } catch (error) {
     console.error('❌ AI error:', error instanceof Error ? error.message : error);
