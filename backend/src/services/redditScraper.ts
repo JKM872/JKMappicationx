@@ -206,9 +206,10 @@ async function fetchViaPullpush(query: string, limit: number): Promise<RedditPos
   try {
     console.log(`🔄 Trying Pullpush.io (Pushshift v2)...`);
     const url = `https://api.pullpush.io/reddit/search/submission/?q=${encodeURIComponent(query)}&size=${Math.min(limit, 100)}&sort=desc&sort_type=score`;
+    console.log(`🔗 Pullpush URL: ${url}`);
     const response = await axios.get(url, {
       headers: { 'User-Agent': getRandomUserAgent() },
-      timeout: 5000,
+      timeout: 8000, // Increased to 8s for slow API
       validateStatus: (s) => s < 500
     });
     
@@ -241,35 +242,32 @@ export async function scrapeReddit(query: string, limit: number = 20): Promise<R
   try {
     console.log(`🤖 Scraping Reddit for: "${query}" [10X POWER MODE]`);
 
-    // ⚡ 10X POWER STRATEGY 1: Try Libreddit instances first (privacy frontends, less likely blocked)
-    console.log('⚡ Strategy 1: Libreddit/Redlib instances...');
-    const libredditPosts = await fetchViaLibreddit(query, limit);
-    if (libredditPosts.length > 0) return libredditPosts;
-
-    // ⚡ 10X POWER STRATEGY 2: Try Google Cache (bypasses IP blocks)
-    console.log('⚡ Strategy 2: Google Cache proxy...');
-    const cachePosts = await fetchViaGoogleCache(query, limit);
-    if (cachePosts.length > 0) return cachePosts;
-
-    // ⚡ 10X POWER STRATEGY 3: Try Archive.org Wayback Machine
-    console.log('⚡ Strategy 3: Archive.org Wayback...');
-    const archivePosts = await fetchViaArchiveOrg(query, limit);
-    if (archivePosts.length > 0) return archivePosts;
-
-    // ⚡ 10X POWER STRATEGY 4: Try Pullpush.io (Pushshift v2 - more reliable!)
-    console.log('⚡ Strategy 4: Pullpush.io API...');
+    // ⚡ FAST STRATEGY 1: Try Pullpush.io FIRST (most reliable Pushshift replacement)
+    console.log('⚡ Fast Strategy 1: Pullpush.io API (Pushshift v2)...');
     const pullpushPosts = await fetchViaPullpush(query, limit);
-    if (pullpushPosts.length > 0) return pullpushPosts;
+    if (pullpushPosts.length > 0) {
+      console.log(`✅ SUCCESS! Pullpush.io returned ${pullpushPosts.length} posts`);
+      return pullpushPosts;
+    }
 
-    // ⚡ 10X POWER STRATEGY 5: Try RapidAPI (if API key available)
-    console.log('⚡ Strategy 5: RapidAPI Reddit endpoint...');
+    // ⚡ FAST STRATEGY 2: Try RapidAPI (if API key available)
+    console.log('⚡ Fast Strategy 2: RapidAPI Reddit endpoint...');
     const rapidPosts = await fetchViaRapidAPI(query, limit);
-    if (rapidPosts.length > 0) return rapidPosts;
+    if (rapidPosts.length > 0) {
+      console.log(`✅ SUCCESS! RapidAPI returned ${rapidPosts.length} posts`);
+      return rapidPosts;
+    }
 
-    // ⚡ 10X POWER STRATEGY 6: Try Redditlist.io aggregator
-    console.log('⚡ Strategy 6: Redditlist.io API...');
-    const redditlistPosts = await fetchViaRedditlistAPI(query, limit);
-    if (redditlistPosts.length > 0) return redditlistPosts;
+    // ⚡ FAST STRATEGY 3: Try Libreddit instances (privacy frontends)
+    console.log('⚡ Fast Strategy 3: Libreddit/Redlib instances...');
+    const libredditPosts = await fetchViaLibreddit(query, limit);
+    if (libredditPosts.length > 0) {
+      console.log(`✅ SUCCESS! Libreddit returned ${libredditPosts.length} posts`);
+      return libredditPosts;
+    }
+
+    // ⚡ SKIP SLOW STRATEGIES (Google Cache, Archive.org)
+    console.log('⚠️ Skipping slow strategies (Google Cache, Archive.org)...');
 
     // Strategy 7: Try multiple Reddit JSON endpoints (with optional proxy)
     console.log('⚡ Strategy 7: Reddit frontends (old/www/teddit)...');
