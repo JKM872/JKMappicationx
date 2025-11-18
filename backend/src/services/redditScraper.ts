@@ -49,7 +49,7 @@ function getProxiedUrl(url: string): string {
   return url;
 }
 
-// NEW: Try via Google Cache (bypasses IP blocks)
+// NEW: Try via Google Cache (bypasses IP blocks) - SKIP (too slow)
 async function fetchViaGoogleCache(query: string, limit: number): Promise<RedditPost[]> {
   try {
     const redditUrl = `https://www.reddit.com/search/?q=${encodeURIComponent(query)}`;
@@ -58,7 +58,7 @@ async function fetchViaGoogleCache(query: string, limit: number): Promise<Reddit
     
     const response = await axios.get(cacheUrl, {
       headers: { 'User-Agent': getRandomUserAgent() },
-      timeout: 10000,
+      timeout: 4000,
       validateStatus: (s) => s < 500
     });
     
@@ -81,42 +81,18 @@ async function fetchViaGoogleCache(query: string, limit: number): Promise<Reddit
   }
 }
 
-// NEW: Try via Archive.org Wayback Machine
+// NEW: Try via Archive.org Wayback Machine - SKIP (too slow, rarely works)
 async function fetchViaArchiveOrg(query: string, limit: number): Promise<RedditPost[]> {
-  try {
-    const redditUrl = `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&sort=top&limit=${limit}`;
-    const archiveUrl = `https://archive.org/wayback/available?url=${encodeURIComponent(redditUrl)}`;
-    console.log(`🗃️ Trying Archive.org: ${archiveUrl}`);
-    
-    const availResponse = await axios.get(archiveUrl, { timeout: 8000 });
-    
-    if (availResponse.data?.archived_snapshots?.closest?.url) {
-      const snapshotUrl = availResponse.data.archived_snapshots.closest.url;
-      const dataResponse = await axios.get(snapshotUrl, {
-        headers: { 'User-Agent': getRandomUserAgent() },
-        timeout: 10000
-      });
-      
-      if (dataResponse.data?.data?.children) {
-        const posts = parseRedditResponse(dataResponse.data, query);
-        console.log(`✅ Archive.org: Found ${posts.length} posts`);
-        return posts.slice(0, limit);
-      }
-    }
-    return [];
-  } catch (err) {
-    console.warn(`❌ Archive.org failed: ${err instanceof Error ? err.message : 'unknown'}`);
-    return [];
-  }
+  // Skip - too slow for production
+  console.log(`⚡ Skipping Archive.org (too slow)`);
+  return [];
 }
 
-// NEW: Try via Libreddit/Redlib instances (privacy-focused Reddit frontends)
+// NEW: Try via Libreddit/Redlib instances (privacy-focused Reddit frontends) - FAST timeouts!
 async function fetchViaLibreddit(query: string, limit: number): Promise<RedditPost[]> {
   const libredditInstances = [
-    'https://libreddit.spike.codes',
-    'https://libreddit.kavin.rocks',
-    'https://reddit.artemislena.eu',
-    'https://lr.riverside.rocks'
+    'https://libreddit.kavin.rocks', // Most reliable first
+    'https://reddit.artemislena.eu'
   ];
   
   for (const instance of libredditInstances) {
@@ -124,7 +100,7 @@ async function fetchViaLibreddit(query: string, limit: number): Promise<RedditPo
       console.log(`📚 Trying Libreddit: ${instance}`);
       const response = await axios.get(`${instance}/search.json?q=${encodeURIComponent(query)}&sort=top&t=week`, {
         headers: { 'User-Agent': getRandomUserAgent() },
-        timeout: 10000,
+        timeout: 3000, // Fast 3s timeout!
         validateStatus: (s) => s < 500
       });
       
@@ -136,7 +112,7 @@ async function fetchViaLibreddit(query: string, limit: number): Promise<RedditPo
         }
       }
     } catch (err) {
-      console.warn(`❌ Libreddit ${instance} failed: ${err instanceof Error ? err.message : 'unknown'}`);
+      // Skip silently for speed
     }
   }
   return [];
@@ -196,7 +172,7 @@ async function fetchViaRapidAPI(query: string, limit: number): Promise<RedditPos
         'X-RapidAPI-Host': 'reddit-scraper2.p.rapidapi.com',
         'User-Agent': getRandomUserAgent()
       },
-      timeout: 15000,
+      timeout: 5000,
       validateStatus: (s) => s < 500
     });
     
@@ -232,7 +208,7 @@ async function fetchViaPullpush(query: string, limit: number): Promise<RedditPos
     const url = `https://api.pullpush.io/reddit/search/submission/?q=${encodeURIComponent(query)}&size=${Math.min(limit, 100)}&sort=desc&sort_type=score`;
     const response = await axios.get(url, {
       headers: { 'User-Agent': getRandomUserAgent() },
-      timeout: 12000,
+      timeout: 5000,
       validateStatus: (s) => s < 500
     });
     
