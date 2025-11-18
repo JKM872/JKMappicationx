@@ -234,41 +234,58 @@ async function fetchViaTedditProxy(query: string, limit: number): Promise<Reddit
   return [];
 }
 
-// NEW: Try Redditvids API (works for video content, but has search too!)
-async function fetchViaRedditVidsAPI(query: string, limit: number): Promise<RedditPost[]> {
+// ✅ OFFICIAL REDDIT JSON API - NO AUTH REQUIRED!
+async function fetchViaRedditAPI(query: string, limit: number): Promise<RedditPost[]> {
   try {
-    console.log(`🎥 Trying RedditVids API...`);
-    // Redditvids has open API
-    const response = await axios.get(`https://api.reddit.com/search.json?q=${encodeURIComponent(query)}&sort=top&t=week&limit=${limit}`, {
-      headers: { 
-        'User-Agent': 'Mozilla/5.0 (compatible; ViralContentHunter/1.0)',
-        'Accept': 'application/json'
+    console.log(`🎯 Official Reddit API: /search.json`);
+    
+    // Use reddit.com/search.json (public JSON endpoint)
+    const response = await axios.get(`https://www.reddit.com/search.json`, {
+      params: {
+        q: query,
+        sort: 'relevance',
+        t: 'week',
+        limit: Math.min(limit, 100),
+        raw_json: 1
       },
-      timeout: 4000,
+      headers: { 
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'application/json',
+        'Accept-Language': 'en-US,en;q=0.9'
+      },
+      timeout: 6000,
       validateStatus: (s) => s < 500
     });
     
     if (response.status === 200 && response.data?.data?.children) {
       const posts = parseRedditResponse(response.data, query);
-      console.log(`✅ Reddit API direct: Found ${posts.length} posts`);
+      console.log(`✅ Reddit Official API: ${posts.length} posts found`);
       return posts.slice(0, limit);
     }
+    
+    console.log(`⚠️ Reddit API status: ${response.status}`);
     return [];
-  } catch (err) {
-    console.warn(`❌ Reddit API failed: ${err instanceof Error ? err.message : 'unknown'}`);
+  } catch (err: any) {
+    if (err.code === 'ECONNABORTED') {
+      console.warn(`❌ Reddit API: timeout after 6s`);
+    } else if (err.response) {
+      console.warn(`❌ Reddit API: HTTP ${err.response.status}`);
+    } else {
+      console.warn(`❌ Reddit API: ${err.message}`);
+    }
     return [];
   }
 }
 
 export async function scrapeReddit(query: string, limit: number = 20): Promise<RedditPost[]> {
   try {
-    console.log(`🤖 Scraping Reddit for: "${query}" [ULTIMATE 10X POWER]`);
+    console.log(`🚀 Reddit v25: "${query}" [OFFICIAL API - NO AUTH!]`);
 
-    // ⚡ FAST STRATEGY 1: Try Reddit API directly (sometimes works!)
-    console.log('⚡ Strategy 1: Reddit official API...');
-    const apiPosts = await fetchViaRedditVidsAPI(query, limit);
+    // ⚡ STRATEGY 1: Reddit Official JSON API (FIXED!)
+    console.log('⚡ Strategy 1: Official /search.json endpoint...');
+    const apiPosts = await fetchViaRedditAPI(query, limit);
     if (apiPosts.length > 0) {
-      console.log(`🎉 SUCCESS! Reddit API returned ${apiPosts.length} posts`);
+      console.log(`🎉 SUCCESS! Reddit API: ${apiPosts.length} posts`);
       return apiPosts;
     }
 
