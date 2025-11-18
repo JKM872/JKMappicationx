@@ -201,73 +201,102 @@ async function fetchViaRapidAPI(query: string, limit: number): Promise<RedditPos
   }
 }
 
-// NEW: Try via Pullpush.io (Pushshift successor with better reliability)
-async function fetchViaPullpush(query: string, limit: number): Promise<RedditPost[]> {
+// NEW: HACK - Use Teddit as Reddit proxy (returns JSON similar to Reddit API)
+async function fetchViaTedditProxy(query: string, limit: number): Promise<RedditPost[]> {
+  // Teddit instances that might still work
+  const tedditInstances = [
+    'https://teddit.net',
+    'https://teddit.pussthecat.org',
+    'https://teddit.privacytools.io'
+  ];
+  
+  for (const instance of tedditInstances) {
+    try {
+      console.log(`🐻 Trying Teddit: ${instance}`);
+      // Teddit has /r/all/search endpoint
+      const response = await axios.get(`${instance}/r/all/search.json?q=${encodeURIComponent(query)}&sort=top`, {
+        headers: { 'User-Agent': getRandomUserAgent() },
+        timeout: 4000,
+        validateStatus: (s) => s < 500
+      });
+      
+      if (response.status === 200 && response.data?.data?.children) {
+        const posts = parseRedditResponse(response.data, query);
+        if (posts.length > 0) {
+          console.log(`✅ Teddit ${instance}: Found ${posts.length} posts`);
+          return posts.slice(0, limit);
+        }
+      }
+    } catch (err) {
+      // Skip silently
+    }
+  }
+  return [];
+}
+
+// NEW: Try Redditvids API (works for video content, but has search too!)
+async function fetchViaRedditVidsAPI(query: string, limit: number): Promise<RedditPost[]> {
   try {
-    console.log(`🔄 Trying Pullpush.io (Pushshift v2)...`);
-    const url = `https://api.pullpush.io/reddit/search/submission/?q=${encodeURIComponent(query)}&size=${Math.min(limit, 100)}&sort=desc&sort_type=score`;
-    console.log(`🔗 Pullpush URL: ${url}`);
-    const response = await axios.get(url, {
-      headers: { 'User-Agent': getRandomUserAgent() },
-      timeout: 8000, // Increased to 8s for slow API
+    console.log(`🎥 Trying RedditVids API...`);
+    // Redditvids has open API
+    const response = await axios.get(`https://api.reddit.com/search.json?q=${encodeURIComponent(query)}&sort=top&t=week&limit=${limit}`, {
+      headers: { 
+        'User-Agent': 'Mozilla/5.0 (compatible; ViralContentHunter/1.0)',
+        'Accept': 'application/json'
+      },
+      timeout: 4000,
       validateStatus: (s) => s < 500
     });
     
-    if (response.status === 200 && response.data?.data) {
-      const posts: RedditPost[] = response.data.data.slice(0, limit).map((item: any, idx: number) => ({
-        id: `pullpush-${item.id || idx}`,
-        platform: 'Reddit' as const,
-        title: item.title || '',
-        content: item.selftext?.substring(0, 500) || item.title || '',
-        author: item.author || 'unknown',
-        likes: item.score || 0,
-        comments: item.num_comments || 0,
-        url: item.full_link || `https://reddit.com${item.permalink || ''}`,
-        timestamp: new Date((item.created_utc || 0) * 1000).toISOString(),
-        subreddit: item.subreddit || '',
-        score: (item.score || 0) + (item.num_comments || 0) * 2
-      }));
-      
-      console.log(`✅ Pullpush.io: Found ${posts.length} posts`);
-      return posts;
+    if (response.status === 200 && response.data?.data?.children) {
+      const posts = parseRedditResponse(response.data, query);
+      console.log(`✅ Reddit API direct: Found ${posts.length} posts`);
+      return posts.slice(0, limit);
     }
     return [];
   } catch (err) {
-    console.warn(`❌ Pullpush.io failed: ${err instanceof Error ? err.message : 'unknown'}`);
+    console.warn(`❌ Reddit API failed: ${err instanceof Error ? err.message : 'unknown'}`);
     return [];
   }
 }
 
 export async function scrapeReddit(query: string, limit: number = 20): Promise<RedditPost[]> {
   try {
-    console.log(`🤖 Scraping Reddit for: "${query}" [10X POWER MODE]`);
+    console.log(`🤖 Scraping Reddit for: "${query}" [ULTIMATE 10X POWER]`);
 
-    // ⚡ FAST STRATEGY 1: Try Pullpush.io FIRST (most reliable Pushshift replacement)
-    console.log('⚡ Fast Strategy 1: Pullpush.io API (Pushshift v2)...');
-    const pullpushPosts = await fetchViaPullpush(query, limit);
-    if (pullpushPosts.length > 0) {
-      console.log(`✅ SUCCESS! Pullpush.io returned ${pullpushPosts.length} posts`);
-      return pullpushPosts;
+    // ⚡ FAST STRATEGY 1: Try Reddit API directly (sometimes works!)
+    console.log('⚡ Strategy 1: Reddit official API...');
+    const apiPosts = await fetchViaRedditVidsAPI(query, limit);
+    if (apiPosts.length > 0) {
+      console.log(`🎉 SUCCESS! Reddit API returned ${apiPosts.length} posts`);
+      return apiPosts;
     }
 
-    // ⚡ FAST STRATEGY 2: Try RapidAPI (if API key available)
-    console.log('⚡ Fast Strategy 2: RapidAPI Reddit endpoint...');
-    const rapidPosts = await fetchViaRapidAPI(query, limit);
-    if (rapidPosts.length > 0) {
-      console.log(`✅ SUCCESS! RapidAPI returned ${rapidPosts.length} posts`);
-      return rapidPosts;
+    // ⚡ FAST STRATEGY 2: Try Teddit proxy (works as Reddit mirror)
+    console.log('⚡ Strategy 2: Teddit proxy instances...');
+    const tedditPosts = await fetchViaTedditProxy(query, limit);
+    if (tedditPosts.length > 0) {
+      console.log(`🎉 SUCCESS! Teddit returned ${tedditPosts.length} posts`);
+      return tedditPosts;
     }
 
     // ⚡ FAST STRATEGY 3: Try Libreddit instances (privacy frontends)
-    console.log('⚡ Fast Strategy 3: Libreddit/Redlib instances...');
+    console.log('⚡ Strategy 3: Libreddit/Redlib instances...');
     const libredditPosts = await fetchViaLibreddit(query, limit);
     if (libredditPosts.length > 0) {
-      console.log(`✅ SUCCESS! Libreddit returned ${libredditPosts.length} posts`);
+      console.log(`🎉 SUCCESS! Libreddit returned ${libredditPosts.length} posts`);
       return libredditPosts;
     }
 
-    // ⚡ SKIP SLOW STRATEGIES (Google Cache, Archive.org)
-    console.log('⚠️ Skipping slow strategies (Google Cache, Archive.org)...');
+    // ⚡ FAST STRATEGY 4: Try RapidAPI (if API key available)
+    console.log('⚡ Strategy 4: RapidAPI Reddit endpoint...');
+    const rapidPosts = await fetchViaRapidAPI(query, limit);
+    if (rapidPosts.length > 0) {
+      console.log(`🎉 SUCCESS! RapidAPI returned ${rapidPosts.length} posts`);
+      return rapidPosts;
+    }
+
+    console.log('⚠️ All fast strategies exhausted, trying fallbacks...');
 
     // Strategy 7: Try multiple Reddit JSON endpoints (with optional proxy)
     console.log('⚡ Strategy 7: Reddit frontends (old/www/teddit)...');
