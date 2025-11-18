@@ -142,37 +142,121 @@ async function fetchViaLibreddit(query: string, limit: number): Promise<RedditPo
   return [];
 }
 
-// NEW: Try via Unddit (shows deleted Reddit content, but also works as proxy)
-async function fetchViaUnddit(query: string, limit: number): Promise<RedditPost[]> {
+// NEW: Try via Redditlist.io API (Reddit aggregator with open API)
+async function fetchViaRedditlistAPI(query: string, limit: number): Promise<RedditPost[]> {
   try {
-    console.log(`🔓 Trying Unddit proxy...`);
-    const response = await axios.get(`https://api.unddit.com/reddit/search/${encodeURIComponent(query)}`, {
+    console.log(`📋 Trying Redditlist.io API...`);
+    // Redditlist has a simple JSON endpoint for subreddit search
+    const response = await axios.get(`https://api.redditlist.io/api/search?query=${encodeURIComponent(query)}`, {
       headers: { 'User-Agent': getRandomUserAgent() },
       timeout: 10000,
       validateStatus: (s) => s < 500
     });
     
-    if (response.status === 200 && response.data?.posts) {
-      const posts: RedditPost[] = response.data.posts.slice(0, limit).map((item: any, idx: number) => ({
-        id: `unddit-${item.id || idx}`,
+    if (response.status === 200 && response.data?.results) {
+      const posts: RedditPost[] = response.data.results.slice(0, limit).map((item: any, idx: number) => ({
+        id: `redditlist-${item.id || idx}`,
         platform: 'Reddit' as const,
         title: item.title || '',
-        content: item.body?.substring(0, 500) || item.title || '',
+        content: item.description?.substring(0, 500) || item.title || '',
+        author: item.author || 'unknown',
+        likes: item.subscribers || 0, // Use subreddit subscribers as proxy for likes
+        comments: 0,
+        url: item.url || `https://reddit.com/r/${item.name}`,
+        timestamp: new Date().toISOString(),
+        subreddit: item.name || '',
+        score: item.subscribers || 0
+      }));
+      
+      console.log(`✅ Redditlist.io: Found ${posts.length} posts`);
+      return posts;
+    }
+    return [];
+  } catch (err) {
+    console.warn(`❌ Redditlist.io failed: ${err instanceof Error ? err.message : 'unknown'}`);
+    return [];
+  }
+}
+
+// NEW: Try via RapidAPI Reddit endpoints (multiple providers available)
+async function fetchViaRapidAPI(query: string, limit: number): Promise<RedditPost[]> {
+  const rapidApiKey = process.env.RAPIDAPI_KEY;
+  if (!rapidApiKey) {
+    console.warn('⚠️ RAPIDAPI_KEY not set, skipping RapidAPI');
+    return [];
+  }
+  
+  try {
+    console.log(`⚡ Trying RapidAPI Reddit endpoint...`);
+    // Reddit Search API on RapidAPI
+    const response = await axios.get(`https://reddit-scraper2.p.rapidapi.com/search_posts`, {
+      params: { query: query, sort: 'top', limit: limit },
+      headers: {
+        'X-RapidAPI-Key': rapidApiKey,
+        'X-RapidAPI-Host': 'reddit-scraper2.p.rapidapi.com',
+        'User-Agent': getRandomUserAgent()
+      },
+      timeout: 15000,
+      validateStatus: (s) => s < 500
+    });
+    
+    if (response.status === 200 && response.data?.data) {
+      const posts: RedditPost[] = response.data.data.slice(0, limit).map((item: any, idx: number) => ({
+        id: `rapidapi-${item.id || idx}`,
+        platform: 'Reddit' as const,
+        title: item.title || '',
+        content: item.selftext?.substring(0, 500) || item.title || '',
         author: item.author || 'unknown',
         likes: item.score || 0,
         comments: item.num_comments || 0,
-        url: item.url || `https://reddit.com${item.permalink || ''}`,
+        url: `https://reddit.com${item.permalink}`,
         timestamp: new Date((item.created_utc || 0) * 1000).toISOString(),
         subreddit: item.subreddit || '',
         score: (item.score || 0) + (item.num_comments || 0) * 2
       }));
       
-      console.log(`✅ Unddit: Found ${posts.length} posts`);
+      console.log(`✅ RapidAPI: Found ${posts.length} posts`);
       return posts;
     }
     return [];
   } catch (err) {
-    console.warn(`❌ Unddit failed: ${err instanceof Error ? err.message : 'unknown'}`);
+    console.warn(`❌ RapidAPI failed: ${err instanceof Error ? err.message : 'unknown'}`);
+    return [];
+  }
+}
+
+// NEW: Try via Pullpush.io (Pushshift successor with better reliability)
+async function fetchViaPullpush(query: string, limit: number): Promise<RedditPost[]> {
+  try {
+    console.log(`🔄 Trying Pullpush.io (Pushshift v2)...`);
+    const url = `https://api.pullpush.io/reddit/search/submission/?q=${encodeURIComponent(query)}&size=${Math.min(limit, 100)}&sort=desc&sort_type=score`;
+    const response = await axios.get(url, {
+      headers: { 'User-Agent': getRandomUserAgent() },
+      timeout: 12000,
+      validateStatus: (s) => s < 500
+    });
+    
+    if (response.status === 200 && response.data?.data) {
+      const posts: RedditPost[] = response.data.data.slice(0, limit).map((item: any, idx: number) => ({
+        id: `pullpush-${item.id || idx}`,
+        platform: 'Reddit' as const,
+        title: item.title || '',
+        content: item.selftext?.substring(0, 500) || item.title || '',
+        author: item.author || 'unknown',
+        likes: item.score || 0,
+        comments: item.num_comments || 0,
+        url: item.full_link || `https://reddit.com${item.permalink || ''}`,
+        timestamp: new Date((item.created_utc || 0) * 1000).toISOString(),
+        subreddit: item.subreddit || '',
+        score: (item.score || 0) + (item.num_comments || 0) * 2
+      }));
+      
+      console.log(`✅ Pullpush.io: Found ${posts.length} posts`);
+      return posts;
+    }
+    return [];
+  } catch (err) {
+    console.warn(`❌ Pullpush.io failed: ${err instanceof Error ? err.message : 'unknown'}`);
     return [];
   }
 }
@@ -196,13 +280,23 @@ export async function scrapeReddit(query: string, limit: number = 20): Promise<R
     const archivePosts = await fetchViaArchiveOrg(query, limit);
     if (archivePosts.length > 0) return archivePosts;
 
-    // ⚡ 10X POWER STRATEGY 4: Try Unddit API (alternative access)
-    console.log('⚡ Strategy 4: Unddit API proxy...');
-    const undditPosts = await fetchViaUnddit(query, limit);
-    if (undditPosts.length > 0) return undditPosts;
+    // ⚡ 10X POWER STRATEGY 4: Try Pullpush.io (Pushshift v2 - more reliable!)
+    console.log('⚡ Strategy 4: Pullpush.io API...');
+    const pullpushPosts = await fetchViaPullpush(query, limit);
+    if (pullpushPosts.length > 0) return pullpushPosts;
 
-    // Strategy 5: Try multiple Reddit JSON endpoints (with optional proxy)
-    console.log('⚡ Strategy 5: Reddit frontends (old/www/teddit)...');
+    // ⚡ 10X POWER STRATEGY 5: Try RapidAPI (if API key available)
+    console.log('⚡ Strategy 5: RapidAPI Reddit endpoint...');
+    const rapidPosts = await fetchViaRapidAPI(query, limit);
+    if (rapidPosts.length > 0) return rapidPosts;
+
+    // ⚡ 10X POWER STRATEGY 6: Try Redditlist.io aggregator
+    console.log('⚡ Strategy 6: Redditlist.io API...');
+    const redditlistPosts = await fetchViaRedditlistAPI(query, limit);
+    if (redditlistPosts.length > 0) return redditlistPosts;
+
+    // Strategy 7: Try multiple Reddit JSON endpoints (with optional proxy)
+    console.log('⚡ Strategy 7: Reddit frontends (old/www/teddit)...');
     for (const baseUrl of REDDIT_ALTERNATIVES) {
       try {
         let url = `${baseUrl}/search.json?q=${encodeURIComponent(query)}&sort=top&t=week&limit=${Math.min(limit, 100)}`;
@@ -266,13 +360,13 @@ export async function scrapeReddit(query: string, limit: number = 20): Promise<R
       console.warn(`❌ Direct JSON failed: ${err instanceof Error ? err.message : 'unknown'}`);
     }
     
-    // Strategy 7: RSS fallback
-    console.warn('⚠️ Strategy 7: RSS fallback...');
+    // Strategy 8: RSS fallback
+    console.warn('⚠️ Strategy 8: RSS fallback...');
     const rssPosts = await fetchRedditRssFallback(query, limit);
     if (rssPosts.length > 0) return rssPosts;
     
-    // Strategy 8: Pushshift API (historical data)
-    console.warn('⚠️ Strategy 8: Pushshift API (last resort)...');
+    // Strategy 9: Original Pushshift API (last resort)
+    console.warn('⚠️ Strategy 9: Original Pushshift API (final fallback)...');
     return await fetchPushshiftFallback(query, limit);
   } catch (err) {
     console.error('❌ Reddit error:', err instanceof Error ? err.message : err);
