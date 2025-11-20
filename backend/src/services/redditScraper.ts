@@ -277,6 +277,84 @@ async function fetchViaRedditAPI(query: string, limit: number): Promise<RedditPo
   }
 }
 
+// NEW: OAuth2-backed Reddit requests (use when anonymous endpoints return 403)
+let redditOAuthCache: { token?: string; expiresAt?: number } = {};
+
+async function getRedditOAuthToken(): Promise<string | null> {
+  const clientId = process.env.REDDIT_CLIENT_ID;
+  const clientSecret = process.env.REDDIT_CLIENT_SECRET;
+  if (!clientId || !clientSecret) return null;
+
+  // return cached token if still valid
+  if (redditOAuthCache.token && redditOAuthCache.expiresAt && Date.now() < redditOAuthCache.expiresAt) {
+    return redditOAuthCache.token;
+  }
+
+  try {
+    const basic = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+    const resp = await axios.post('https://www.reddit.com/api/v1/access_token',
+      'grant_type=client_credentials',
+      {
+        headers: {
+          Authorization: `Basic ${basic}`,
+          'User-Agent': 'ViralContentHunter/1.0 by yourusername',
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        timeout: 8000
+      }
+    );
+
+    const token = resp.data?.access_token;
+    const expires = resp.data?.expires_in || 3600;
+    if (token) {
+      redditOAuthCache.token = token;
+      redditOAuthCache.expiresAt = Date.now() + (expires - 30) * 1000; // refresh a bit before expiry
+      console.log(`🔐 Obtained Reddit OAuth token (expires in ${expires}s)`);
+      return token;
+    }
+    return null;
+  } catch (err: any) {
+    console.warn(`❌ Failed to obtain Reddit OAuth token: ${err?.message || err}`);
+    return null;
+  }
+}
+
+async function fetchViaRedditOAuth(query: string, limit: number): Promise<RedditPost[]> {
+  const token = await getRedditOAuthToken();
+  if (!token) return [];
+
+  try {
+    console.log('🚀 Querying reddit via OAuth /oauth.reddit.com/search');
+    const response = await axios.get('https://oauth.reddit.com/search', {
+      params: {
+        q: query,
+        sort: 'relevance',
+        t: 'week',
+        limit: Math.min(limit, 100),
+        raw_json: 1
+      },
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'User-Agent': 'ViralContentHunter/1.0 by yourusername',
+        Accept: 'application/json'
+      },
+      timeout: 8000,
+      validateStatus: (s) => s < 500
+    });
+
+    if (response.status === 200 && response.data?.data?.children) {
+      const posts = parseRedditResponse(response.data, query);
+      console.log(`✅ Reddit OAuth: Found ${posts.length} posts`);
+      return posts.slice(0, limit);
+    }
+    console.warn(`⚠️ Reddit OAuth returned status ${response.status}`);
+    return [];
+  } catch (err: any) {
+    console.warn(`❌ Reddit OAuth failed: ${err?.message || err}`);
+    return [];
+  }
+}
+
 export async function scrapeReddit(query: string, limit: number = 20): Promise<RedditPost[]> {
   try {
     console.log(`🚀 Reddit v25: "${query}" [OFFICIAL API - NO AUTH!]`);
@@ -287,6 +365,20 @@ export async function scrapeReddit(query: string, limit: number = 20): Promise<R
     if (apiPosts.length > 0) {
       console.log(`🎉 SUCCESS! Reddit API: ${apiPosts.length} posts`);
       return apiPosts;
+    }
+
+    // If official public endpoint returned nothing (or 403), try OAuth-authenticated Reddit API
+    if (process.env.REDDIT_CLIENT_ID && process.env.REDDIT_CLIENT_SECRET) {
+      try {
+        console.log('⚡ Strategy 1b: OAuth-authenticated Reddit API...');
+        const oauthPosts = await fetchViaRedditOAuth(query, limit);
+        if (oauthPosts.length > 0) {
+          console.log(`🎉 SUCCESS! Reddit OAuth: ${oauthPosts.length} posts`);
+          return oauthPosts;
+        }
+      } catch (err) {
+        console.warn('❌ OAuth strategy failed, continuing to next strategies');
+      }
     }
 
     // ⚡ FAST STRATEGY 2: Try Teddit proxy (works as Reddit mirror)
