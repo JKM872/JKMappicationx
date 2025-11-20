@@ -357,9 +357,17 @@ async function fetchViaRedditOAuth(query: string, limit: number): Promise<Reddit
 
 export async function scrapeReddit(query: string, limit: number = 20): Promise<RedditPost[]> {
   try {
-    console.log(`🚀 Reddit v25: "${query}" [OFFICIAL API - NO AUTH!]`);
+    console.log(`🚀 Reddit v27: "${query}" [FAST PROXIES FIRST!]`);
 
-    // ⚡ STRATEGY 1: Reddit Official JSON API (FIXED!)
+    // ⚡ STRATEGY 0: Try Reddit RSS feed FIRST (works without auth, faster parsing)
+    console.log('⚡ Strategy 0: Reddit RSS (FAST & RELIABLE)...');
+    const rssResults = await fetchRedditRssFallback(query, limit);
+    if (rssResults.length > 0) {
+      console.log(`🎉 SUCCESS! Reddit RSS: ${rssResults.length} posts`);
+      return rssResults;
+    }
+
+    // ⚡ STRATEGY 1: Reddit Official JSON API
     console.log('⚡ Strategy 1: Official /search.json endpoint...');
     const apiPosts = await fetchViaRedditAPI(query, limit);
     if (apiPosts.length > 0) {
@@ -559,39 +567,75 @@ async function fetchPushshiftFallback(query: string, limit: number): Promise<Red
 // RSS fallback using Reddit's RSS search (if JSON endpoints blocked)
 async function fetchRedditRssFallback(query: string, limit: number): Promise<RedditPost[]> {
   try {
-    const rssUrl = `https://www.reddit.com/search.rss?q=${encodeURIComponent(query)}&limit=${Math.min(limit, 100)}`;
-    console.log(`🔁 Reddit RSS fallback: ${rssUrl}`);
+    const rssUrl = `https://www.reddit.com/search.rss?q=${encodeURIComponent(query)}&sort=top&t=week&limit=${Math.min(limit, 100)}`;
+    console.log(`🔥 Reddit RSS (PRIMARY): ${rssUrl}`);
     const res = await axios.get(rssUrl, {
       headers: {
-        'User-Agent': getRandomUserAgent(),
-        'Accept': 'application/rss+xml, application/xml;q=0.9, */*;q=0.8'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'application/rss+xml, application/xml, text/xml, */*'
       },
-      timeout: 12000,
+      timeout: 8000,
       validateStatus: (s) => s < 500
     });
 
-    if (!res.data) return [];
+    if (!res.data || res.status !== 200) {
+      console.warn(`⚠️ RSS returned status ${res.status}`);
+      return [];
+    }
 
-    // Simple XML parse via regex for titles/links (lightweight)
-    const items = Array.from(res.data.matchAll(/<item>[\s\S]*?<title>([\s\S]*?)<\/title>[\s\S]*?<link>([\s\S]*?)<\/link>[\s\S]*?<pubDate>([\s\S]*?)<\/pubDate>[\s\S]*?<author>([\s\S]*?)<\/author>/g));
-    const posts: RedditPost[] = items.slice(0, limit).map((m: any, idx: number) => ({
-      id: `rss-${Date.now()}-${idx}`,
-      platform: 'Reddit',
-      title: (m[1] || '').replace(/<[^>]+>/g, ''),
-      content: '',
-      author: (m[4] || '').replace(/<[^>]+>/g, ''),
-      likes: 0,
-      comments: 0,
-      url: (m[2] || '').trim(),
-      timestamp: new Date(m[3] || Date.now()).toISOString(),
-      subreddit: '',
-      score: 0
-    }));
+    // Parse Reddit RSS with improved regex (extracts category for subreddit)
+    const entries = res.data.match(/<entry>[\s\S]*?<\/entry>/g) || [];
+    const posts: RedditPost[] = [];
 
-    console.log(`✅ Reddit RSS fallback: Found ${posts.length} posts`);
+    for (const entry of entries.slice(0, limit)) {
+      try {
+        const titleMatch = entry.match(/<title>(.*?)<\/title>/);
+        const linkMatch = entry.match(/<link href="([^"]+)"/);
+        const authorMatch = entry.match(/<name>([^<]+)<\/name>/);
+        const updatedMatch = entry.match(/<updated>(.*?)<\/updated>/);
+        const categoryMatch = entry.match(/<category term="([^"]+)" label="r\/([^"]+)"/);
+        const contentMatch = entry.match(/<content[^>]*>([\s\S]*?)<\/content>/);
+
+        if (!titleMatch || !linkMatch) continue;
+
+        // Extract subreddit from category or URL
+        const subreddit = categoryMatch ? categoryMatch[2] : 
+                         (linkMatch[1].match(/\/r\/([^\/]+)/) || [])[1] || '';
+
+        // Clean HTML from title and content
+        const title = titleMatch[1]
+          .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+          .replace(/&amp;/g, '&').replace(/<[^>]+>/g, '').trim();
+        
+        const content = contentMatch ? 
+          contentMatch[1]
+            .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+            .replace(/&amp;/g, '&').replace(/<[^>]+>/g, '')
+            .substring(0, 500).trim() : title;
+
+        posts.push({
+          id: `rss-${Date.now()}-${posts.length}`,
+          platform: 'Reddit' as const,
+          title,
+          content,
+          author: authorMatch ? authorMatch[1].replace('/u/', '') : 'unknown',
+          likes: 100, // RSS doesn't include scores, use placeholder
+          comments: 0,
+          url: linkMatch[1],
+          timestamp: updatedMatch ? new Date(updatedMatch[1]).toISOString() : new Date().toISOString(),
+          subreddit,
+          score: 100
+        });
+      } catch (parseErr) {
+        // Skip malformed entries
+        continue;
+      }
+    }
+
+    console.log(`✅ Reddit RSS: Found ${posts.length} posts`);
     return posts;
   } catch (err) {
-    console.error('❌ Reddit RSS fallback error:', err instanceof Error ? err.message : err);
+    console.error('❌ Reddit RSS error:', err instanceof Error ? err.message : err);
     return [];
   }
 }
