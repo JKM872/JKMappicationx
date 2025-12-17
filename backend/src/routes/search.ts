@@ -16,7 +16,7 @@ const router = express.Router();
  */
 router.get('/search', async (req: Request, res: Response) => {
   try {
-    const { query = 'javascript', limit = '20', source = 'all' } = req.query;
+    const { query = 'javascript', limit = '20', source, platform } = req.query;
     
     if (!query || typeof query !== 'string') {
       return res.status(400).json({ 
@@ -26,14 +26,18 @@ router.get('/search', async (req: Request, res: Response) => {
     }
 
     const parsedLimit = Math.min(parseInt(limit as string) || 20, 100);
-
-    console.log(`\n📡 API Search Request: "${query}" (limit: ${parsedLimit}, source: ${source})\n`);
     
-    let posts = await searchAllSources(query, parsedLimit);
+    // Accept both 'source' and 'platform' parameters
+    const filterPlatform = (source || platform || 'all') as string;
 
-    // Filter by source if specified (case-insensitive)
-    if (source && typeof source === 'string' && source !== 'all') {
-      posts = posts.filter(p => p.platform.toLowerCase() === source.toLowerCase());
+    console.log(`\n📡 API Search Request: "${query}" (limit: ${parsedLimit}, platform: ${filterPlatform})\n`);
+    
+    // Pass platform filter to searchAllSources for more efficient scraping
+    let posts = await searchAllSources(query, parsedLimit, filterPlatform);
+
+    // Double-check filter (in case searchAllSources returns mixed results)
+    if (filterPlatform && filterPlatform !== 'all') {
+      posts = posts.filter(p => p.platform.toLowerCase() === filterPlatform.toLowerCase());
     }
 
     // Recompute viral scores (already has icon from unifiedScraper)
@@ -47,7 +51,7 @@ router.get('/search', async (req: Request, res: Response) => {
       data: ranked,
       count: ranked.length,
       query,
-      platform: source || 'all',
+      platform: filterPlatform,
       sources: [...new Set(ranked.map(p => p.platform))]
     });
   } catch (err) {

@@ -80,3 +80,51 @@ $$ LANGUAGE plpgsql;
 
 -- Grant permissions (adjust if needed)
 -- ALTER TABLE post_metrics ENABLE ROW LEVEL SECURITY;
+
+-- =====================================================
+-- Planned Posts Table for Content Calendar
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS planned_posts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  content TEXT NOT NULL,
+  platform TEXT NOT NULL DEFAULT 'all' CHECK (platform IN ('Twitter', 'Reddit', 'Dev.to', 'Threads', 'all')),
+  scheduled_date TIMESTAMP,
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'scheduled', 'published')),
+  original_post_id TEXT,
+  original_content TEXT,
+  hashtags TEXT[],
+  user_id TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Create indexes for planned_posts
+CREATE INDEX IF NOT EXISTS idx_planned_posts_status ON planned_posts(status);
+CREATE INDEX IF NOT EXISTS idx_planned_posts_scheduled_date ON planned_posts(scheduled_date);
+CREATE INDEX IF NOT EXISTS idx_planned_posts_platform ON planned_posts(platform);
+CREATE INDEX IF NOT EXISTS idx_planned_posts_user_id ON planned_posts(user_id);
+
+-- Function to auto-update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_planned_posts_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger for auto-updating updated_at
+DROP TRIGGER IF EXISTS planned_posts_updated_at ON planned_posts;
+CREATE TRIGGER planned_posts_updated_at
+  BEFORE UPDATE ON planned_posts
+  FOR EACH ROW
+  EXECUTE FUNCTION update_planned_posts_timestamp();
+
+-- View for upcoming scheduled posts
+CREATE OR REPLACE VIEW upcoming_scheduled_posts AS
+SELECT *
+FROM planned_posts
+WHERE status = 'scheduled'
+  AND scheduled_date > NOW()
+ORDER BY scheduled_date ASC;

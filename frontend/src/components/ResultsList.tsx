@@ -1,4 +1,8 @@
 import { Post } from '../types';
+import { Search, User, Heart, MessageCircle, Clock, ExternalLink, Code, Zap, Rss } from 'lucide-react';
+import { SiReddit } from 'react-icons/si';
+import { FaXTwitter } from 'react-icons/fa6';
+import { SkeletonList } from './ui/Skeleton';
 
 interface ResultsListProps {
   posts: Post[];
@@ -8,17 +12,14 @@ interface ResultsListProps {
 
 export function ResultsList({ posts, onSelectPost, loading = false }: ResultsListProps) {
   if (loading) {
-    return (
-      <div className="flex justify-center items-center h-40">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
-      </div>
-    );
+    return <SkeletonList count={4} />;
   }
 
   if (posts.length === 0) {
     return (
       <div className="text-center py-12 text-gray-500">
-        <p className="text-lg">🔍 No results yet. Try searching for viral posts!</p>
+        <Search className="w-12 h-12 mx-auto mb-4 opacity-50" />
+        <p className="text-lg">No results yet. Try searching for viral posts!</p>
         <p className="text-sm mt-2">Example: "javascript", "AI", "React"</p>
       </div>
     );
@@ -37,7 +38,7 @@ export function ResultsList({ posts, onSelectPost, loading = false }: ResultsLis
   const formatTimeAgo = (timestamp: string | Date): string => {
     const date = new Date(timestamp);
     const hours = (Date.now() - date.getTime()) / (1000 * 60 * 60);
-    
+
     if (hours < 1) {
       return `${Math.round(hours * 60)}m ago`;
     }
@@ -47,23 +48,23 @@ export function ResultsList({ posts, onSelectPost, loading = false }: ResultsLis
     return `${Math.round(hours / 24)}d ago`;
   };
 
-  const platformConfig = {
-    Twitter: { name: '𝕏 Twitter', color: 'bg-slate-50 border-slate-200', badge: 'bg-black' },
-    Reddit: { name: '🤖 Reddit', color: 'bg-orange-50 border-orange-200', badge: 'bg-orange-500' },
-    'Dev.to': { name: '👨‍💻 Dev.to', color: 'bg-purple-50 border-purple-200', badge: 'bg-purple-600' },
-    devto: { name: '👨‍💻 Dev.to', color: 'bg-purple-50 border-purple-200', badge: 'bg-purple-600' },
-    reddit: { name: '🤖 Reddit', color: 'bg-orange-50 border-orange-200', badge: 'bg-orange-500' },
-    twitter: { name: '𝕏 Twitter', color: 'bg-slate-50 border-slate-200', badge: 'bg-black' },
-    hackernews: { name: '⚡ Hacker News', color: 'bg-amber-50 border-amber-200', badge: 'bg-amber-600' },
-    rss: { name: '📰 RSS Feed', color: 'bg-gray-50 border-gray-200', badge: 'bg-gray-600' },
+  const platformConfig: Record<string, { name: string; icon: React.ReactNode; color: string; badge: string }> = {
+    Twitter: { name: 'Twitter', icon: <FaXTwitter className="w-3 h-3" />, color: 'bg-slate-50 border-slate-200', badge: 'bg-black' },
+    Reddit: { name: 'Reddit', icon: <SiReddit className="w-3 h-3" />, color: 'bg-orange-50 border-orange-200', badge: 'bg-orange-500' },
+    'Dev.to': { name: 'Dev.to', icon: <Code className="w-3 h-3" />, color: 'bg-purple-50 border-purple-200', badge: 'bg-purple-600' },
+    devto: { name: 'Dev.to', icon: <Code className="w-3 h-3" />, color: 'bg-purple-50 border-purple-200', badge: 'bg-purple-600' },
+    reddit: { name: 'Reddit', icon: <SiReddit className="w-3 h-3" />, color: 'bg-orange-50 border-orange-200', badge: 'bg-orange-500' },
+    twitter: { name: 'Twitter', icon: <FaXTwitter className="w-3 h-3" />, color: 'bg-slate-50 border-slate-200', badge: 'bg-black' },
+    hackernews: { name: 'Hacker News', icon: <Zap className="w-3 h-3" />, color: 'bg-amber-50 border-amber-200', badge: 'bg-amber-600' },
+    rss: { name: 'RSS Feed', icon: <Rss className="w-3 h-3" />, color: 'bg-gray-50 border-gray-200', badge: 'bg-gray-600' },
   };
 
   return (
     <div className="space-y-3">
       {posts.map((post, idx) => {
         const platform = (post as any).platform || 'rss';
-        const config = platformConfig[platform as keyof typeof platformConfig] || platformConfig.rss;
-        
+        const config = platformConfig[platform] || platformConfig.rss;
+
         return (
           <div
             key={post.id || idx}
@@ -73,8 +74,8 @@ export function ResultsList({ posts, onSelectPost, loading = false }: ResultsLis
             {/* Header */}
             <div className="flex justify-between items-start mb-2">
               <div className="flex-1">
-                <span className={`inline-block px-2 py-1 rounded text-xs font-semibold text-white mb-2 ${config.badge}`}>
-                  {config.name}
+                <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-semibold text-white mb-2 ${config.badge}`}>
+                  {config.icon} {config.name}
                 </span>
                 <h3 className="font-bold text-sm text-gray-800 line-clamp-2">
                   {(post as any).title || post.content?.substring(0, 100)}
@@ -92,10 +93,10 @@ export function ResultsList({ posts, onSelectPost, loading = false }: ResultsLis
 
             {/* Stats */}
             <div className="flex gap-4 text-xs text-gray-600">
-              <span>👤 {post.author}</span>
-              <span>❤️ {formatNumber(post.likes || 0)}</span>
-              <span>💬 {formatNumber((post as any).comments || post.replies || 0)}</span>
-              <span>📅 {formatTimeAgo((post as any).timestamp || new Date())}</span>
+              <span className="flex items-center gap-1"><User className="w-3 h-3" /> {post.author}</span>
+              <span className="flex items-center gap-1"><Heart className="w-3 h-3" /> {formatNumber(post.likes || 0)}</span>
+              <span className="flex items-center gap-1"><MessageCircle className="w-3 h-3" /> {formatNumber((post as any).comments || post.replies || 0)}</span>
+              <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {formatTimeAgo((post as any).timestamp || new Date())}</span>
             </div>
 
             {/* View Link */}
@@ -104,10 +105,10 @@ export function ResultsList({ posts, onSelectPost, loading = false }: ResultsLis
                 href={post.postUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-2 inline-block text-xs text-blue-600 hover:text-blue-800 font-medium"
+                className="mt-2 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
                 onClick={(e) => e.stopPropagation()}
               >
-                View Post →
+                <ExternalLink className="w-3 h-3" /> View Post
               </a>
             )}
           </div>
@@ -116,3 +117,4 @@ export function ResultsList({ posts, onSelectPost, loading = false }: ResultsLis
     </div>
   );
 }
+

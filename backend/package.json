@@ -28,13 +28,16 @@
     "@google/generative-ai": "^0.2.1",
     "@supabase/supabase-js": "^2.39.0",
     "axios": "^1.13.2",
+    "bull": "^4.16.5",
     "cheerio": "^1.1.2",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "express-rate-limit": "^7.1.5",
+    "redis": "^4.6.0",
     "undici": "^6.22.0",
-    "winston": "^3.11.0"
+    "winston": "^3.11.0",
+    "threads-api": "^1.6.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

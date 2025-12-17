@@ -11,6 +11,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { MetricDataPoint, GrowthRate } from '../types';
+import { BarChart3, Heart, Repeat, MessageCircle, AlertCircle } from 'lucide-react';
 
 interface DashboardProps {
   postId?: string;
@@ -58,8 +59,8 @@ export function Dashboard({ postId }: DashboardProps) {
   if (!postId) {
     return (
       <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
-        <h2 className="text-2xl font-bold mb-4 text-gray-800">
-          📊 Engagement Dashboard
+        <h2 className="text-2xl font-bold mb-4 text-gray-800 flex items-center gap-2">
+          <BarChart3 className="w-6 h-6" /> Engagement Dashboard
         </h2>
         <p className="text-gray-500 text-center py-12">
           Select a post to view engagement metrics and growth trends
@@ -70,8 +71,8 @@ export function Dashboard({ postId }: DashboardProps) {
 
   return (
     <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
-      <h2 className="text-2xl font-bold mb-4 text-gray-800">
-        📊 Engagement Dashboard
+      <h2 className="text-2xl font-bold mb-4 text-gray-800 flex items-center gap-2">
+        <BarChart3 className="w-6 h-6" /> Engagement Dashboard
       </h2>
 
       {loading && (
@@ -83,7 +84,7 @@ export function Dashboard({ postId }: DashboardProps) {
 
       {error && (
         <div className="text-red-500 text-sm bg-red-50 px-4 py-2 rounded border border-red-200 mb-4">
-          ⚠️ {error}
+          <AlertCircle className="w-4 h-4 inline mr-1" /> {error}
         </div>
       )}
 
@@ -93,21 +94,21 @@ export function Dashboard({ postId }: DashboardProps) {
           {growthRate && (
             <div className="grid grid-cols-3 gap-4 mb-6">
               <div className="p-4 bg-gradient-to-br from-red-50 to-red-100 border border-red-200 rounded-lg">
-                <p className="text-xs text-gray-600 mb-1">❤️ Likes / Hour</p>
+                <p className="text-xs text-gray-600 mb-1 flex items-center gap-1"><Heart className="w-3 h-3" /> Likes / Hour</p>
                 <p className="text-2xl font-bold text-red-600">
                   +{growthRate.likes_per_hour.toFixed(1)}
                 </p>
               </div>
 
               <div className="p-4 bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-lg">
-                <p className="text-xs text-gray-600 mb-1">🔁 Retweets / Hour</p>
+                <p className="text-xs text-gray-600 mb-1 flex items-center gap-1"><Repeat className="w-3 h-3" /> Retweets / Hour</p>
                 <p className="text-2xl font-bold text-green-600">
                   +{growthRate.retweets_per_hour.toFixed(1)}
                 </p>
               </div>
 
               <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-lg">
-                <p className="text-xs text-gray-600 mb-1">💬 Replies / Hour</p>
+                <p className="text-xs text-gray-600 mb-1 flex items-center gap-1"><MessageCircle className="w-3 h-3" /> Replies / Hour</p>
                 <p className="text-2xl font-bold text-blue-600">
                   +{growthRate.replies_per_hour.toFixed(1)}
                 </p>
