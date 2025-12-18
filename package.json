@@ -8,9 +8,9 @@
         "npm": "10.x"
     },
     "scripts": {
-        "heroku-postbuild": "cd backend && npm install && npm run build",
-        "start": "cd backend && npm run start",
-        "dev": "cd backend && npm run dev"
+        "heroku-postbuild": "npm --prefix backend install && npm --prefix backend run build",
+        "start": "npm --prefix backend run start",
+        "dev": "npm --prefix backend run dev"
     },
     "keywords": [
         "viral",
