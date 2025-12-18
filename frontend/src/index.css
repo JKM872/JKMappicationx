@@ -8,22 +8,33 @@
   font-weight: 400;
 
   color-scheme: dark;
-  color: rgba(255, 255, 255, 0.95);
-  background-color: #0a0a0f;
+  color: #EDEDED;
+  background-color: #000000;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  /* Modern color tokens */
-  --neon-purple: #a855f7;
-  --neon-blue: #3b82f6;
-  --neon-cyan: #06b6d4;
-  --neon-pink: #ec4899;
-  --neon-rose: #f43f5e;
-  --glass-bg: rgba(15, 15, 25, 0.6);
-  --glass-border: rgba(255, 255, 255, 0.08);
+  /* Vercel-inspired color tokens */
+  --vercel-blue: #0070F3;
+  --vercel-cyan: #50E3C2;
+  --vercel-purple: #7928CA;
+  --vercel-pink: #FF0080;
+  --vercel-orange: #F5A623;
+  --vercel-red: #FF0000;
+  --vercel-green: #50E3C2;
+  --gray-100: #FAFAFA;
+  --gray-200: #EAEAEA;
+  --gray-300: #999999;
+  --gray-400: #888888;
+  --gray-500: #666666;
+  --gray-600: #444444;
+  --gray-700: #333333;
+  --gray-800: #222222;
+  --gray-900: #111111;
+  --glass-bg: rgba(0, 0, 0, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.1);
 }
 
 body {
@@ -36,10 +47,7 @@ body {
 #root {
   min-height: 100vh;
   position: relative;
-  background: radial-gradient(ellipse at top left, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
-    radial-gradient(ellipse at top right, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
-    radial-gradient(ellipse at bottom, rgba(236, 72, 153, 0.1) 0%, transparent 50%),
-    #0a0a0f;
+  background: #000000;
 }
 
 /* Animated gradient orbs */
@@ -178,12 +186,17 @@ body {
    ======================================== */
 
 .sidebar-minimal {
-  background: #0d0d0d;
-  width: 260px;
+  background: #000000;
+  width: 240px;
   min-height: 100vh;
-  padding: 1.5rem 0;
+  padding: 1rem 0;
   display: flex;
   flex-direction: column;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 40;
+  border-right: 1px solid var(--gray-800);
 }
 
 .sidebar-nav-item {
@@ -206,13 +219,13 @@ body {
 }
 
 .sidebar-nav-item.active {
-  color: #f59e0b;
-  background: rgba(245, 158, 11, 0.08);
-  border-left-color: #f59e0b;
+  color: var(--vercel-blue);
+  background: rgba(0, 112, 243, 0.1);
+  border-left-color: var(--vercel-blue);
 }
 
 .sidebar-nav-item.active .sidebar-icon {
-  color: #f59e0b;
+  color: var(--vercel-blue);
 }
 
 .sidebar-icon {

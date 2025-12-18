@@ -64,17 +64,54 @@ export function TweetCard({ post, onSelect, onPlan }: TweetCardProps) {
 
   const subreddit = (post as any).subreddit;
 
+  // Get initials for avatar fallback
+  const getInitials = (name: string) => {
+    if (!name) return '?';
+    const words = name.trim().split(/\s+/);
+    if (words.length >= 2) {
+      return (words[0][0] + words[1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
+
+  // Determine if post is viral (high engagement)
+  const isViral = (post as any).score > 1000 || likes > 500 || (likes + retweets + comments) > 800;
+
+  // Get avatar URL if available
+  const avatarUrl = (post as any).avatarUrl || (post as any).authorImage || (post as any).profileImage;
+
   return (
     <div
-      className="px-4 py-4 glass-card hover-lift cursor-pointer transition-all duration-300 border-l-4 border-transparent hover:border-purple-500 group"
+      className="px-4 py-4 glass-card hover-lift cursor-pointer transition-all duration-300 border-l-4 border-transparent hover:border-[#0070F3] group"
       onClick={() => onSelect?.(post)}
     >
+      {/* Viral Badge */}
+      {isViral && (
+        <div className="mb-2">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-orange-500/20 text-orange-400 rounded-full border border-orange-500/30">
+            🔥 Viral
+          </span>
+        </div>
+      )}
+
       {/* Header - Avatar + Author + Handle + Time */}
       <div className="flex gap-3">
-        {/* Avatar */}
+        {/* Avatar - shows profile pic or initials */}
         <div className="flex-shrink-0">
-          <div className={`w-12 h-12 rounded-full ${config.bgColor} flex items-center justify-center text-2xl border-2 border-gray-800`}>
-            {config.icon}
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={post.author || 'User'}
+              className="w-12 h-12 rounded-full border-2 border-gray-700 object-cover"
+              onError={(e) => {
+                // Fallback to initials if image fails
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+              }}
+            />
+          ) : null}
+          <div className={`w-12 h-12 rounded-full ${config.bgColor} flex items-center justify-center text-sm font-bold text-white border-2 border-gray-700 ${avatarUrl ? 'hidden' : ''}`}>
+            {getInitials(post.author || 'User')}
           </div>
         </div>
 
@@ -144,14 +181,14 @@ export function TweetCard({ post, onSelect, onPlan }: TweetCardProps) {
               {copied ? 'Copied!' : 'Copy'}
             </button>
 
-            {/* View Original Post Button */}
-            {post.postUrl && (
+            {/* View Original Post Button - SHOW FOR ALL PLATFORMS */}
+            {(post.url || post.postUrl) && (
               <a
-                href={post.postUrl}
+                href={post.postUrl || post.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-[#1d9bf0] border border-gray-800 rounded-full text-sm font-semibold transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[#0070F3]/10 hover:bg-[#0070F3]/20 text-[#0070F3] border border-[#0070F3]/30 rounded-full text-sm font-semibold transition-colors"
               >
                 <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current">
                   <path d="M18.36 5.64c-1.95-1.96-5.11-1.96-7.07 0L9.88 7.05 8.46 5.64l1.42-1.42c2.73-2.73 7.16-2.73 9.9 0 2.73 2.74 2.73 7.17 0 9.9l-1.42 1.42-1.41-1.42 1.41-1.41c1.96-1.96 1.96-5.12 0-7.07zm-2.12 3.53l-7.07 7.07-1.41-1.41 7.07-7.07 1.41 1.41zm-12.02.71l1.42-1.42 1.41 1.42-1.41 1.41c-1.96 1.96-1.96 5.12 0 7.07 1.95 1.96 5.11 1.96 7.07 0l1.41-1.41 1.42 1.41-1.42 1.42c-2.73 2.73-7.16 2.73-9.9 0-2.73-2.74-2.73-7.17 0-9.9z" />

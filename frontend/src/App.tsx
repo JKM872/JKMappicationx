@@ -95,8 +95,8 @@ function App() {
 
   return (
     <div className="min-h-screen bg-transparent text-white relative">
-      {/* Main Container - Twitter 3-column layout */}
-      <div className="max-w-[1280px] mx-auto flex relative z-10">
+      {/* Main Container - adjusted for fixed sidebar */}
+      <div className="max-w-[1280px] mx-auto flex relative z-10 ml-[240px]">
 
         {/* Left Sidebar - Minimal Design */}
         <div className="sidebar-minimal sticky top-0 flex-shrink-0 border-r border-white/5">
