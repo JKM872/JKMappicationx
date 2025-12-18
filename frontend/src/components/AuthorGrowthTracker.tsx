@@ -132,8 +132,72 @@ export function AuthorGrowthTracker() {
 
     if (loading) {
         return (
-            <div className="flex justify-center items-center py-20">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
+            <div className="p-6 space-y-6">
+                {/* Header Skeleton */}
+                <div className="flex justify-between items-center">
+                    <div>
+                        <div className="h-7 w-56 bg-white/5 rounded skeleton mb-2"></div>
+                        <div className="h-4 w-72 bg-white/5 rounded skeleton"></div>
+                    </div>
+                    <div className="flex gap-2">
+                        <div className="h-10 w-32 bg-white/5 rounded-lg skeleton"></div>
+                        <div className="h-10 w-10 bg-white/5 rounded-lg skeleton"></div>
+                    </div>
+                </div>
+
+                {/* Main Content Grid Skeleton */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Author List Skeleton */}
+                    <div className="lg:col-span-1 bg-gray-900 rounded-xl p-4 border border-gray-800">
+                        <div className="h-6 w-40 bg-white/5 rounded skeleton mb-4"></div>
+                        <div className="space-y-2">
+                            {[1, 2, 3, 4, 5].map((i) => (
+                                <div key={i} className="p-3 rounded-lg bg-gray-800/50">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-6 h-6 bg-white/10 rounded skeleton"></div>
+                                        <div className="w-8 h-8 bg-white/10 rounded-full skeleton"></div>
+                                        <div className="flex-1 space-y-2">
+                                            <div className="h-4 w-24 bg-white/10 rounded skeleton"></div>
+                                            <div className="h-3 w-16 bg-white/5 rounded skeleton"></div>
+                                        </div>
+                                        <div className="space-y-1 text-right">
+                                            <div className="h-4 w-12 bg-green-500/20 rounded skeleton"></div>
+                                            <div className="h-3 w-8 bg-white/5 rounded skeleton"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Detail & Chart Skeleton */}
+                    <div className="lg:col-span-2 space-y-4">
+                        {/* Stats Cards Skeleton */}
+                        <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="w-12 h-12 bg-white/10 rounded-full skeleton"></div>
+                                <div className="space-y-2">
+                                    <div className="h-6 w-32 bg-white/10 rounded skeleton"></div>
+                                    <div className="h-4 w-20 bg-white/5 rounded skeleton"></div>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-4">
+                                {[1, 2, 3].map((i) => (
+                                    <div key={i} className="bg-gray-800/50 rounded-xl p-4">
+                                        <div className="h-3 w-24 bg-white/5 rounded skeleton mb-2"></div>
+                                        <div className="h-8 w-16 bg-white/10 rounded skeleton"></div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Chart Skeleton */}
+                        <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+                            <div className="h-6 w-48 bg-white/5 rounded skeleton mb-4"></div>
+                            <div className="h-[250px] bg-white/5 rounded skeleton"></div>
+                        </div>
+                    </div>
+                </div>
             </div>
         );
     }
@@ -184,9 +248,9 @@ export function AuthorGrowthTracker() {
                                 key={`${author.author_handle}-${author.platform}`}
                                 onClick={() => handleSelectAuthor(author)}
                                 className={`p-3 rounded-lg cursor-pointer transition-all ${selectedAuthor?.author_handle === author.author_handle &&
-                                        selectedAuthor?.platform === author.platform
-                                        ? 'bg-green-900/30 border border-green-700'
-                                        : 'bg-gray-800/50 hover:bg-gray-800 border border-transparent'
+                                    selectedAuthor?.platform === author.platform
+                                    ? 'bg-green-900/30 border border-green-700'
+                                    : 'bg-gray-800/50 hover:bg-gray-800 border border-transparent'
                                     }`}
                             >
                                 <div className="flex items-center gap-3">

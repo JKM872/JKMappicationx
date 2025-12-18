@@ -48,6 +48,7 @@ export interface TwitterPost {
   timestamp: string;
   image?: string;
   score: number;
+  dataSource?: 'live' | 'cached' | 'curated' | 'estimated';
 }
 
 function getRandomUserAgent(): string {
@@ -166,7 +167,7 @@ async function tryNitterInstance(instance: string, query: string, limit: number)
         validateStatus: (status) => status < 500
       }
     );
-    
+
     if (response.status === 403 || response.status === 429 || response.status === 503) {
       return [];
     }
@@ -177,33 +178,33 @@ async function tryNitterInstance(instance: string, query: string, limit: number)
     // Parse Nitter timeline items
     $('.timeline-item, .tweet-body').each((idx, elem) => {
       if (posts.length >= limit) return false;
-      
+
       try {
         const $elem = $(elem);
 
         // Try multiple selectors for different Nitter versions
-        const author = $elem.find('.fullname, .tweet-name-row .fullname').first().text()?.trim() || 
-                       $elem.find('[class*="fullname"]').first().text()?.trim() || 'Unknown';
-        const handle = $elem.find('.username, .tweet-name-row .username').first().text()?.trim() || 
-                       $elem.find('[class*="username"]').first().text()?.trim() || '@unknown';
+        const author = $elem.find('.fullname, .tweet-name-row .fullname').first().text()?.trim() ||
+          $elem.find('[class*="fullname"]').first().text()?.trim() || 'Unknown';
+        const handle = $elem.find('.username, .tweet-name-row .username').first().text()?.trim() ||
+          $elem.find('[class*="username"]').first().text()?.trim() || '@unknown';
         const content = $elem.find('.tweet-content, .tweet-text').first().text()?.trim() || '';
         const link = $elem.find('.tweet-link, a[href*="/status/"]').first().attr('href') || '';
-        
+
         // Extract stats with multiple patterns
         const statsContainer = $elem.find('.tweet-stats, .icon-container').text();
         const likesMatch = statsContainer.match(/(\d+(?:,\d+)*)\s*(?:likes?|♥|❤)/i) ||
-                          $elem.find('[class*="like"] span, .icon-heart + span').text().match(/(\d+(?:,\d+)*)/);
+          $elem.find('[class*="like"] span, .icon-heart + span').text().match(/(\d+(?:,\d+)*)/);
         const retweetsMatch = statsContainer.match(/(\d+(?:,\d+)*)\s*(?:retweets?|🔁)/i) ||
-                             $elem.find('[class*="retweet"] span, .icon-retweet + span').text().match(/(\d+(?:,\d+)*)/);
+          $elem.find('[class*="retweet"] span, .icon-retweet + span').text().match(/(\d+(?:,\d+)*)/);
         const repliesMatch = statsContainer.match(/(\d+(?:,\d+)*)\s*(?:replies?|💬)/i) ||
-                            $elem.find('[class*="reply"] span, .icon-comment + span').text().match(/(\d+(?:,\d+)*)/);
+          $elem.find('[class*="reply"] span, .icon-comment + span').text().match(/(\d+(?:,\d+)*)/);
 
         const likes = parseInt((likesMatch?.[1] || '0').replace(/,/g, ''));
         const retweets = parseInt((retweetsMatch?.[1] || '0').replace(/,/g, ''));
         const replies = parseInt((repliesMatch?.[1] || '0').replace(/,/g, ''));
 
-        const timeText = $elem.find('.tweet-date a, time').first().attr('title') || 
-                        $elem.find('.tweet-date a, time').first().text() || '';
+        const timeText = $elem.find('.tweet-date a, time').first().attr('title') ||
+          $elem.find('.tweet-date a, time').first().text() || '';
         const image = $elem.find('.attachment.image img, .still-image img, .media-image').first().attr('src');
 
         // Filter out invalid content
@@ -211,8 +212,8 @@ async function tryNitterInstance(instance: string, query: string, limit: number)
         if (content.toLowerCase().includes("don't have an account")) return;
         if (content.toLowerCase().includes("sign up")) return;
 
-        const tweetUrl = link.startsWith('http') ? link : 
-                        link.startsWith('/') ? `https://twitter.com${link.replace('/i/web', '')}` : '';
+        const tweetUrl = link.startsWith('http') ? link :
+          link.startsWith('/') ? `https://twitter.com${link.replace('/i/web', '')}` : '';
 
         posts.push({
           id: `twitter-${Date.now()}-${idx}`,
@@ -248,7 +249,7 @@ async function tryTwitterSyndication(query: string, limit: number): Promise<Twit
   try {
     // Try searching for a username that matches the query
     const searchUrl = `https://syndication.twitter.com/srv/timeline-profile/screen-name/${encodeURIComponent(query.split(' ')[0])}`;
-    
+
     const response = await axios.get(searchUrl, {
       headers: {
         'User-Agent': getRandomUserAgent(),
@@ -258,26 +259,26 @@ async function tryTwitterSyndication(query: string, limit: number): Promise<Twit
       timeout: 8000,
       validateStatus: (s) => s < 500
     });
-    
+
     if (response.status !== 200 || !response.data) {
       return [];
     }
 
     const html = response.data.toString();
     const posts: TwitterPost[] = [];
-    
+
     // Parse embedded tweet data
     const $ = cheerio.load(html);
-    
+
     $('.timeline-Tweet').each((idx, elem) => {
       if (posts.length >= limit) return false;
-      
+
       const $elem = $(elem);
       const tweetId = $elem.attr('data-tweet-id') || '';
       const content = $elem.find('.timeline-Tweet-text').text()?.trim() || '';
       const author = $elem.find('.TweetAuthor-name').text()?.trim() || query;
       const handle = $elem.find('.TweetAuthor-screenName').text()?.trim() || `@${query}`;
-      
+
       if (content.length > 10) {
         posts.push({
           id: `syndication-${tweetId || Date.now()}-${idx}`,
@@ -310,7 +311,7 @@ async function tryJinaReaderProxy(query: string, limit: number): Promise<Twitter
   try {
     const twitterUrl = `https://twitter.com/search?q=${encodeURIComponent(query)}&f=live`;
     const jinaUrl = `https://r.jina.ai/${twitterUrl}`;
-    
+
     const response = await axios.get(jinaUrl, {
       headers: {
         'User-Agent': getRandomUserAgent(),
@@ -319,13 +320,13 @@ async function tryJinaReaderProxy(query: string, limit: number): Promise<Twitter
       timeout: 12000,
       validateStatus: (s) => s < 500
     });
-    
+
     if (response.status !== 200 || !response.data) {
       return [];
     }
 
     const text = response.data.toString();
-    
+
     // Filter out bad content - more aggressive filtering
     const badPatterns = [
       'sign up', 'log in', 'create account', "don't have an account",
@@ -335,23 +336,23 @@ async function tryJinaReaderProxy(query: string, limit: number): Promise<Twitter
       'http://', 'https://', 'www.', '.com', '.net', '.org',
       'twitter.com', 'x.com', 'source:', 'description:'
     ];
-    
+
     const lines = text.split('\n').filter((l: string) => {
       const lower = l.toLowerCase().trim();
       if (l.length < 40 || l.length > 400) return false;
       if (badPatterns.some(p => lower.includes(p))) return false;
-      
+
       // Must look like actual tweet content (has letters, not just symbols)
       const letterCount = (l.match(/[a-zA-Z]/g) || []).length;
       if (letterCount < 20) return false;
-      
+
       // Must contain some query-related content
       const queryWords = query.toLowerCase().split(/\s+/);
       return queryWords.some(word => lower.includes(word));
     });
-    
+
     if (lines.length === 0) return [];
-    
+
     return lines.slice(0, limit).map((line: string, idx: number) => ({
       id: `jina-${Date.now()}-${idx}`,
       platform: 'Twitter' as const,
@@ -360,11 +361,12 @@ async function tryJinaReaderProxy(query: string, limit: number): Promise<Twitter
       title: line.substring(0, 100),
       content: line.trim(),
       url: twitterUrl,
-      likes: Math.floor(Math.random() * 500) + 50,
-      retweets: Math.floor(Math.random() * 100) + 10,
-      replies: Math.floor(Math.random() * 50) + 5,
+      likes: 0,
+      retweets: 0,
+      replies: 0,
       timestamp: new Date().toISOString(),
-      score: 100
+      score: 50,
+      dataSource: 'estimated' as const
     }));
   } catch (err) {
     console.warn('⚠️ Jina Reader failed:', err instanceof Error ? err.message : 'unknown');
@@ -391,11 +393,11 @@ async function tryAlternativeViewers(query: string, limit: number): Promise<Twit
 
       $('[class*="tweet"], [class*="post"]').each((idx, elem) => {
         if (posts.length >= limit) return false;
-        
+
         const $elem = $(elem);
         const content = $elem.find('[class*="content"], [class*="text"]').text()?.trim();
         const author = $elem.find('[class*="author"], [class*="name"]').text()?.trim();
-        
+
         if (content && content.length > 20) {
           posts.push({
             id: `alt-${Date.now()}-${idx}`,
@@ -405,11 +407,12 @@ async function tryAlternativeViewers(query: string, limit: number): Promise<Twit
             title: content.substring(0, 100),
             content: content,
             url: `https://twitter.com/search?q=${encodeURIComponent(query)}`,
-            likes: Math.floor(Math.random() * 500) + 50,
-            retweets: Math.floor(Math.random() * 100) + 10,
-            replies: Math.floor(Math.random() * 50) + 5,
+            likes: 0,
+            retweets: 0,
+            replies: 0,
             timestamp: new Date().toISOString(),
-            score: 100
+            score: 50,
+            dataSource: 'estimated' as const
           });
         }
       });
@@ -419,7 +422,7 @@ async function tryAlternativeViewers(query: string, limit: number): Promise<Twit
       continue;
     }
   }
-  
+
   return [];
 }
 
@@ -478,11 +481,12 @@ function generateCuratedTwitterPosts(query: string, limit: number): TwitterPost[
     title: t.template.substring(0, 100),
     content: t.template,
     url: `https://twitter.com/search?q=${encodeURIComponent(query)}`,
-    likes: t.likes + Math.floor(Math.random() * 500),
-    retweets: t.retweets + Math.floor(Math.random() * 200),
-    replies: t.replies + Math.floor(Math.random() * 100),
-    timestamp: new Date(Date.now() - Math.random() * 86400000 * 2).toISOString(),
-    score: t.likes + t.retweets * 1.5 + t.replies * 0.5
+    likes: t.likes,
+    retweets: t.retweets,
+    replies: t.replies,
+    timestamp: new Date(Date.now() - idx * 3600000).toISOString(),
+    score: t.likes + t.retweets * 1.5 + t.replies * 0.5,
+    dataSource: 'curated' as const
   }));
 }
 

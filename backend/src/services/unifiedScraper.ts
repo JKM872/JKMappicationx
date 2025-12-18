@@ -1,6 +1,7 @@
 import { scrapeNitter, TwitterPost as NitterTwitterPost } from './nitterScraper';
 import { searchTwitter, TwitterPost as UltimateTwitterPost } from './twitterScraper';
 import { searchTwitterDirect } from './twitterDirectScraper';
+import { searchTwitterSimple } from './twitterSimpleScraper';
 import { scrapeReddit, RedditPost } from './redditScraper';
 import { scrapeDevTo, DevToPost } from './devtoScraper';
 import { scrapeThreads, ThreadsPost } from './threadsScraper';
@@ -36,7 +37,7 @@ export interface UnifiedPost {
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
     promise,
-    new Promise<T>((_, reject) => 
+    new Promise<T>((_, reject) =>
       setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms)
     )
   ]);
@@ -44,7 +45,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 
 /**
  * Scrape Twitter with Direct Methods (NO COST!)
- * Priority: 1. Twitter Direct (guest token) -> 2. Twikit -> 3. Multi-source
+ * Priority: 0. Simple (new!) -> 1. Direct -> 2. Twikit -> 3. Multi-source -> 4. Nitter
  */
 async function scrapeTwitterWithFallback(query: string, limit: number): Promise<InternalTwitterPost[]> {
   const cache = getCacheService();
@@ -57,11 +58,42 @@ async function scrapeTwitterWithFallback(query: string, limit: number): Promise<
     return cached;
   }
 
+  // ⚡ PRIORITY 0: NEW Simple Scraper (Guest Token + XCancel)
+  try {
+    console.log('🐦 Twitter: Trying Simple Scraper (NEW - Guest Token + XCancel)...');
+    const simplePosts = await searchTwitterSimple(query, limit);
+
+    if (simplePosts.length > 0) {
+      const internalPosts: InternalTwitterPost[] = simplePosts.map((p) => ({
+        id: p.id,
+        platform: 'Twitter' as const,
+        author: p.author,
+        handle: p.handle,
+        title: p.title,
+        content: p.content,
+        url: p.url,
+        likes: p.likes,
+        retweets: p.retweets,
+        replies: p.replies,
+        timestamp: p.timestamp,
+        image: p.image,
+        score: p.score,
+        dataSource: p.dataSource
+      }));
+
+      console.log(`✅ Twitter Simple: ${internalPosts.length} tweets (${simplePosts[0]?.dataSource || 'unknown'} source)`);
+      await cache.set(cacheKey, internalPosts, 3600);
+      return internalPosts;
+    }
+  } catch (error: any) {
+    console.warn('⚠️ Twitter Simple failed:', error.message);
+  }
+
   // ⚡ PRIORITY 1: Twitter Direct Scraper (NO AUTH, NO COST!)
   try {
     console.log('🐦 Twitter: Trying Direct Scraper (Guest Token)...');
     const directPosts = await searchTwitterDirect(query, limit);
-    
+
     if (directPosts.length > 0) {
       // Convert to internal format
       const internalPosts: InternalTwitterPost[] = directPosts.map((p: any) => ({
@@ -80,7 +112,7 @@ async function scrapeTwitterWithFallback(query: string, limit: number): Promise<
         image: p.image,
         score: p.score
       }));
-      
+
       console.log(`✅ Twitter Direct: ${internalPosts.length} REAL tweets`);
       await cache.set(cacheKey, internalPosts, 3600);
       return internalPosts;
@@ -95,7 +127,7 @@ async function scrapeTwitterWithFallback(query: string, limit: number): Promise<
     try {
       console.log('🐦 Twitter: Trying Twikit (REAL Twitter API)...');
       const twikitPosts = await twikitScraper.search(query, limit);
-      
+
       if (twikitPosts.length > 0) {
         const internalPosts: InternalTwitterPost[] = twikitPosts.map((p: any) => ({
           id: p.id,
@@ -113,7 +145,7 @@ async function scrapeTwitterWithFallback(query: string, limit: number): Promise<
           image: p.image,
           score: (p.likes || 0) + (p.retweets || 0) * 2 + (p.replies || 0)
         }));
-        
+
         console.log(`✅ Twitter Twikit: ${internalPosts.length} tweets`);
         await cache.set(cacheKey, internalPosts, 3600);
         return internalPosts;
@@ -127,7 +159,7 @@ async function scrapeTwitterWithFallback(query: string, limit: number): Promise<
   try {
     console.log('🔄 Twitter: Trying multi-source scraper...');
     const posts = await searchTwitter(query, limit);
-    
+
     if (posts.length > 0) {
       const internalPosts: InternalTwitterPost[] = posts.map((p: UltimateTwitterPost) => ({
         id: p.id,
@@ -144,7 +176,7 @@ async function scrapeTwitterWithFallback(query: string, limit: number): Promise<
         image: p.image,
         score: p.score
       }));
-      
+
       await cache.set(cacheKey, internalPosts, 3600);
       return internalPosts;
     }
@@ -170,7 +202,7 @@ export async function searchAllSources(
   // Run only requested scrapers (or all if platform='all')
   const startTime = Date.now();
   const shouldScrape = (p: string) => platform === 'all' || platform.toLowerCase() === p.toLowerCase();
-  
+
   const results = await Promise.allSettled([
     shouldScrape('twitter') ? withTimeout(scrapeTwitterWithFallback(query, limit), 25000) : Promise.resolve([]),
     shouldScrape('reddit') ? withTimeout(scrapeReddit(query, limit), 20000) : Promise.resolve([]),
@@ -185,7 +217,7 @@ export async function searchAllSources(
   const redditPosts = results[1].status === 'fulfilled' ? results[1].value : [];
   const devtoPosts = results[2].status === 'fulfilled' ? results[2].value : [];
   const threadsPosts = results[3].status === 'fulfilled' ? results[3].value : [];
-  
+
   // Detailed logging for debugging
   const platformStatus = {
     Twitter: results[0].status === 'fulfilled' ? `✅ ${twitterPosts.length}` : `❌ ${(results[0] as PromiseRejectedResult).reason?.message || 'failed'}`,
@@ -193,7 +225,7 @@ export async function searchAllSources(
     'Dev.to': results[2].status === 'fulfilled' ? `✅ ${devtoPosts.length}` : `❌ ${(results[2] as PromiseRejectedResult).reason?.message || 'failed'}`,
     Threads: results[3].status === 'fulfilled' ? `✅ ${threadsPosts.length}` : `❌ ${(results[3] as PromiseRejectedResult).reason?.message || 'failed'}`
   };
-  
+
   console.log('📊 Platform Status:', JSON.stringify(platformStatus, null, 2));
 
   // Konwertuj do unified format

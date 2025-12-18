@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import axios from 'axios';
 import { Zap, Brain, Smile, Briefcase, Coffee, Sparkles, Shuffle, AlertCircle, Clipboard, Lightbulb, Globe, CheckCircle, Languages, SpellCheck } from 'lucide-react';
+import { useToast } from './ui/Toast';
 
 interface RewriteVariation {
     text: string;
@@ -29,6 +30,7 @@ interface RewritePanelProps {
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export function RewritePanel({ content, onSelectVariation, onClose }: RewritePanelProps) {
+    const { success: toastSuccess, error: toastError } = useToast();
     const [variations, setVariations] = useState<RewriteVariation[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -70,12 +72,15 @@ export function RewritePanel({ content, onSelectVariation, onClose }: RewritePan
 
             if (res.data.success) {
                 setVariations(res.data.data.variations);
+                toastSuccess(`Wygenerowano ${res.data.data.variations.length} wariantów!`);
             } else {
                 setError('Failed to generate rewrites');
+                toastError('Nie udało się wygenerować wariantów');
             }
         } catch (err) {
             console.error('Rewrite failed:', err);
             setError('Failed to generate rewrites. Please try again.');
+            toastError('Błąd generowania. Spróbuj ponownie.');
         } finally {
             setLoading(false);
         }
@@ -93,12 +98,15 @@ export function RewritePanel({ content, onSelectVariation, onClose }: RewritePan
 
             if (res.data.success) {
                 setTranslateResult(res.data.data);
+                toastSuccess(`Przetłumaczono na ${targetLanguage}!`);
             } else {
                 setError('Failed to translate content');
+                toastError('Nie udało się przetłumaczyć');
             }
         } catch (err) {
             console.error('Translate failed:', err);
             setError('Failed to translate. Please try again.');
+            toastError('Błąd tłumaczenia. Spróbuj ponownie.');
         } finally {
             setLoading(false);
         }
@@ -116,12 +124,15 @@ export function RewritePanel({ content, onSelectVariation, onClose }: RewritePan
 
             if (res.data.success) {
                 setGrammarResult(res.data.data);
+                toastSuccess('Gramatyka poprawiona!');
             } else {
                 setError('Failed to improve grammar');
+                toastError('Nie udało się poprawić gramatyki');
             }
         } catch (err) {
             console.error('Grammar check failed:', err);
             setError('Failed to check grammar. Please try again.');
+            toastError('Błąd sprawdzania gramatyki. Spróbuj ponownie.');
         } finally {
             setLoading(false);
         }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Bot, CheckCircle, AlertCircle, Repeat, Pin, Trash2, Save } from 'lucide-react';
+import { useToast } from './ui/Toast';
 
 interface AutomationSettings {
     autoRepost: {
@@ -26,6 +27,7 @@ interface AutomationSettings {
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export function AutomationSettings() {
+    const { success: toastSuccess, error: toastError } = useToast();
     const [settings, setSettings] = useState<AutomationSettings | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -59,11 +61,15 @@ export function AutomationSettings() {
             const res = await axios.post(`${API_BASE}/api/automation/settings`, settings);
             if (res.data.success) {
                 setMessage({ type: 'success', text: 'Settings saved successfully!' });
+                toastSuccess('Ustawienia zapisane!');
                 setTimeout(() => setMessage(null), 3000);
+            } else {
+                toastError('Nie udało się zapisać ustawień');
             }
         } catch (err) {
             console.error('Failed to save settings:', err);
             setMessage({ type: 'error', text: 'Failed to save settings' });
+            toastError('Błąd przy zapisywaniu ustawień');
         } finally {
             setSaving(false);
         }
@@ -76,10 +82,14 @@ export function AutomationSettings() {
             if (res.data.success) {
                 setSettings(res.data.data);
                 setMessage({ type: 'success', text: 'Settings reset to defaults' });
+                toastSuccess('Ustawienia zresetowane!');
                 setTimeout(() => setMessage(null), 3000);
+            } else {
+                toastError('Nie udało się zresetować ustawień');
             }
         } catch (err) {
             console.error('Failed to reset settings:', err);
+            toastError('Błąd przy resetowaniu ustawień');
         } finally {
             setSaving(false);
         }

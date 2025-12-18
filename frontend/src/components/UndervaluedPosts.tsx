@@ -112,8 +112,59 @@ export function UndervaluedPosts() {
 
     if (loading) {
         return (
-            <div className="flex justify-center items-center py-20">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+            <div className="p-6 space-y-6">
+                {/* Header Skeleton */}
+                <div className="flex justify-between items-center">
+                    <div>
+                        <div className="h-7 w-40 bg-white/5 rounded skeleton mb-2"></div>
+                        <div className="h-4 w-80 bg-white/5 rounded skeleton"></div>
+                    </div>
+                    <div className="flex gap-2">
+                        <div className="h-10 w-32 bg-white/5 rounded-lg skeleton"></div>
+                        <div className="h-10 w-10 bg-white/5 rounded-lg skeleton"></div>
+                    </div>
+                </div>
+
+                {/* Info Banner Skeleton */}
+                <div className="bg-purple-900/20 rounded-xl p-4">
+                    <div className="flex items-start gap-3">
+                        <div className="w-5 h-5 bg-white/10 rounded skeleton"></div>
+                        <div className="flex-1 space-y-2">
+                            <div className="h-5 w-48 bg-white/10 rounded skeleton"></div>
+                            <div className="h-4 w-full bg-white/5 rounded skeleton"></div>
+                            <div className="h-4 w-3/4 bg-white/5 rounded skeleton"></div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Posts Grid Skeleton */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {[1, 2, 3, 4, 5, 6].map((i) => (
+                        <div key={i} className="rounded-xl p-4 border border-white/10 bg-gray-900/50">
+                            {/* Header */}
+                            <div className="flex justify-between items-start mb-3">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 bg-white/10 rounded skeleton"></div>
+                                    <div className="w-6 h-6 bg-white/10 rounded skeleton"></div>
+                                    <div className="h-4 w-20 bg-white/10 rounded skeleton"></div>
+                                </div>
+                                <div className="h-6 w-16 bg-purple-500/20 rounded-full skeleton"></div>
+                            </div>
+                            {/* Content */}
+                            <div className="space-y-2 mb-4">
+                                <div className="h-4 w-full bg-white/5 rounded skeleton"></div>
+                                <div className="h-4 w-5/6 bg-white/5 rounded skeleton"></div>
+                                <div className="h-4 w-4/6 bg-white/5 rounded skeleton"></div>
+                            </div>
+                            {/* Stats */}
+                            <div className="flex gap-4">
+                                <div className="h-4 w-12 bg-white/10 rounded skeleton"></div>
+                                <div className="h-4 w-12 bg-white/10 rounded skeleton"></div>
+                                <div className="h-4 w-12 bg-white/10 rounded skeleton"></div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </div>
         );
     }

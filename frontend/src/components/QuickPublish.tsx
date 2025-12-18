@@ -14,6 +14,7 @@ import {
   Check,
   AlertCircle
 } from 'lucide-react';
+import { useToast } from './ui/Toast';
 
 interface Platform {
   name: string;
@@ -32,6 +33,7 @@ interface PublishResult {
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const QuickPublish: React.FC = () => {
+  const { success: toastSuccess, error: toastError, warning: toastWarning } = useToast();
   const [content, setContent] = useState('');
   const [title, setTitle] = useState('');
   const [_platforms, setPlatforms] = useState<Platform[]>([]); // Fetched for future dynamic use
@@ -65,7 +67,7 @@ const QuickPublish: React.FC = () => {
 
   const handlePublish = async () => {
     if (!content.trim()) {
-      alert('Wpisz treść do opublikowania!');
+      toastWarning('Wpisz treść do opublikowania!');
       return;
     }
 
@@ -88,8 +90,15 @@ const QuickPublish: React.FC = () => {
 
       if (data.results) {
         setResults(data.results);
+        const successCount = data.results.filter((r: PublishResult) => r.success).length;
+        if (successCount > 0) {
+          toastSuccess(`Opublikowano na ${successCount} platformach!`);
+        } else {
+          toastError('Nie udało się opublikować na żadnej platformie');
+        }
       }
     } catch (error: any) {
+      toastError(error.message || 'Wystąpił błąd podczas publikacji');
       setResults([{
         platform: 'all',
         success: false,
@@ -102,7 +111,7 @@ const QuickPublish: React.FC = () => {
 
   const handleSinglePublish = async (platform: string) => {
     if (!content.trim()) {
-      alert('Wpisz treść do opublikowania!');
+      toastWarning('Wpisz treść do opublikowania!');
       return;
     }
 

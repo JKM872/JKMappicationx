@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { SiReddit, SiThreads } from 'react-icons/si';
 import { FaXTwitter } from 'react-icons/fa6';
+import { useToast } from './ui/Toast';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -231,6 +232,7 @@ export function PostEditor({ post, originalContent, onSave, onClose }: PostEdito
 }
 
 export function ContentCalendar() {
+  const { success: toastSuccess, error: toastError } = useToast();
   const [plannedPosts, setPlannedPosts] = useState<PlannedPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEditor, setShowEditor] = useState(false);
@@ -281,9 +283,13 @@ export function ContentCalendar() {
         setShowEditor(false);
         setEditingPost(null);
         fetchPosts();
+        toastSuccess(editingPost ? 'Post zaktualizowany!' : 'Post zapisany!');
+      } else {
+        toastError('Nie udało się zapisać posta');
       }
     } catch (err) {
       console.error('Error saving post:', err);
+      toastError('Błąd przy zapisywaniu posta');
     }
   };
 
@@ -299,9 +305,13 @@ export function ContentCalendar() {
 
       if (data.success) {
         fetchPosts();
+        toastSuccess('Post usunięty!');
+      } else {
+        toastError('Nie udało się usunąć posta');
       }
     } catch (err) {
       console.error('Error deleting post:', err);
+      toastError('Błąd przy usuwaniu posta');
     }
   };
 

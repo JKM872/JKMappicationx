@@ -15,6 +15,7 @@ import {
     CheckCircle,
     AlertCircle
 } from 'lucide-react';
+import { useToast } from './ui/Toast';
 
 interface RepostCandidate {
     post_id: string;
@@ -51,6 +52,7 @@ interface AutoRepostSettings {
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export function AutoRepostPanel() {
+    const { success: toastSuccess, error: toastError } = useToast();
     const [candidates, setCandidates] = useState<RepostCandidate[]>([]);
     const [scheduled, setScheduled] = useState<ScheduledRepost[]>([]);
     const [settings, setSettings] = useState<AutoRepostSettings | null>(null);
@@ -94,9 +96,11 @@ export function AutoRepostPanel() {
             });
             if (res.data.success) {
                 setSettings(res.data.data);
+                toastSuccess(res.data.data.enabled ? 'Auto-repost włączony!' : 'Auto-repost wyłączony');
             }
         } catch (err) {
             console.error('Failed to toggle auto-repost:', err);
+            toastError('Nie udało się zmienić ustawień');
         }
     };
 
@@ -115,10 +119,12 @@ export function AutoRepostPanel() {
                 setScheduled([...scheduled, res.data.data]);
                 setScheduling(null);
                 setScheduleDate('');
+                toastSuccess('Repost zaplanowany!');
             }
         } catch (err) {
             console.error('Failed to schedule repost:', err);
             setError('Failed to schedule. Please try again.');
+            toastError('Nie udało się zaplanować repostu');
         }
     };
 
@@ -127,9 +133,11 @@ export function AutoRepostPanel() {
             const res = await axios.delete(`${API_BASE}/api/automation/auto-repost/${id}`);
             if (res.data.success) {
                 setScheduled(scheduled.filter(r => r.id !== id));
+                toastSuccess('Repost anulowany!');
             }
         } catch (err) {
             console.error('Failed to cancel repost:', err);
+            toastError('Nie udało się anulować repostu');
         }
     };
 
@@ -175,8 +183,8 @@ export function AutoRepostPanel() {
                 <button
                     onClick={toggleAutoRepost}
                     className={`px-4 py-2 rounded-xl font-medium flex items-center gap-2 transition-all ${settings?.enabled
-                            ? 'bg-gradient-to-r from-green-600 to-emerald-500 text-white shadow-lg shadow-green-500/20'
-                            : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
+                        ? 'bg-gradient-to-r from-green-600 to-emerald-500 text-white shadow-lg shadow-green-500/20'
+                        : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
                         }`}
                 >
                     {settings?.enabled ? (
@@ -212,8 +220,8 @@ export function AutoRepostPanel() {
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id as any)}
                         className={`px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${activeTab === tab.id
-                                ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg'
-                                : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                            ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg'
+                            : 'bg-white/5 text-gray-400 hover:bg-white/10'
                             }`}
                     >
                         <tab.icon className="w-4 h-4" />
