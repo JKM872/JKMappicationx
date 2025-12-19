@@ -2,15 +2,13 @@ import { useState, useEffect } from 'react';
 import { PlannedPost } from '../types';
 import {
   Globe,
-  Code,
   Sparkles,
   RefreshCw,
   Calendar,
   Pencil,
   Trash2
 } from 'lucide-react';
-import { SiReddit, SiThreads } from 'react-icons/si';
-import { FaXTwitter } from 'react-icons/fa6';
+import { XIcon, RedditIcon, ThreadsIcon, DevToIcon } from './ui/IconSystem';
 import { useToast } from './ui/Toast';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -35,10 +33,10 @@ export function PostEditor({ post, originalContent, onSave, onClose }: PostEdito
 
   const platforms: { id: PlannedPost['platform']; name: string; icon: React.ReactNode }[] = [
     { id: 'all', name: 'All Platforms', icon: <Globe className="w-5 h-5" /> },
-    { id: 'Twitter', name: 'Twitter/X', icon: <FaXTwitter className="w-5 h-5" /> },
-    { id: 'Reddit', name: 'Reddit', icon: <SiReddit className="w-5 h-5" /> },
-    { id: 'Dev.to', name: 'Dev.to', icon: <Code className="w-5 h-5" /> },
-    { id: 'Threads', name: 'Threads', icon: <SiThreads className="w-5 h-5" /> },
+    { id: 'Twitter', name: 'Twitter/X', icon: <XIcon className="w-5 h-5" /> },
+    { id: 'Reddit', name: 'Reddit', icon: <RedditIcon className="w-5 h-5" /> },
+    { id: 'Dev.to', name: 'Dev.to', icon: <DevToIcon className="w-5 h-5" /> },
+    { id: 'Threads', name: 'Threads', icon: <ThreadsIcon className="w-5 h-5" /> },
   ];
 
   const handleRemix = async () => {
@@ -317,10 +315,10 @@ export function ContentCalendar() {
 
   const getPlatformIcon = (platform: string): React.ReactNode => {
     const icons: Record<string, React.ReactNode> = {
-      Twitter: <FaXTwitter className="w-5 h-5" />,
-      Reddit: <SiReddit className="w-5 h-5" />,
-      'Dev.to': <Code className="w-5 h-5" />,
-      Threads: <SiThreads className="w-5 h-5" />,
+      Twitter: <XIcon className="w-5 h-5" />,
+      Reddit: <RedditIcon className="w-5 h-5" />,
+      'Dev.to': <DevToIcon className="w-5 h-5" />,
+      Threads: <ThreadsIcon className="w-5 h-5" />,
       all: <Globe className="w-5 h-5" />
     };
     return icons[platform] || <Globe className="w-5 h-5" />;

@@ -1,7 +1,6 @@
 import { Post } from '../types';
-import { Globe, Code, Clipboard, Check } from 'lucide-react';
-import { SiReddit, SiThreads } from 'react-icons/si';
-import { FaXTwitter } from 'react-icons/fa6';
+import { Globe, Clipboard, Check } from 'lucide-react';
+import { XIcon, RedditIcon, ThreadsIcon, DevToIcon } from './ui/IconSystem';
 import { useState } from 'react';
 
 interface TweetCardProps {
@@ -42,11 +41,11 @@ export function TweetCard({ post, onSelect, onPlan }: TweetCardProps) {
 
   const getPlatformConfig = (platform: string) => {
     const configs: Record<string, { badge: string; color: string; icon: React.ReactNode; bgColor: string }> = {
-      Twitter: { badge: 'bg-black border border-gray-700', color: 'text-gray-400', icon: <FaXTwitter className="w-5 h-5" />, bgColor: 'bg-black' },
-      Reddit: { badge: 'bg-orange-600 border border-orange-700', color: 'text-orange-400', icon: <SiReddit className="w-5 h-5" />, bgColor: 'bg-orange-600' },
-      'Dev.to': { badge: 'bg-purple-600 border border-purple-700', color: 'text-purple-400', icon: <Code className="w-5 h-5" />, bgColor: 'bg-purple-600' },
-      devto: { badge: 'bg-purple-600 border border-purple-700', color: 'text-purple-400', icon: <Code className="w-5 h-5" />, bgColor: 'bg-purple-600' },
-      Threads: { badge: 'bg-gradient-to-r from-purple-500 to-pink-500 border border-purple-600', color: 'text-pink-400', icon: <SiThreads className="w-5 h-5" />, bgColor: 'bg-gradient-to-br from-purple-600 to-pink-500' },
+      Twitter: { badge: 'bg-black border border-gray-700', color: 'text-gray-400', icon: <XIcon className="w-5 h-5" />, bgColor: 'bg-black' },
+      Reddit: { badge: 'bg-orange-600 border border-orange-700', color: 'text-orange-400', icon: <RedditIcon className="w-5 h-5" />, bgColor: 'bg-orange-600' },
+      'Dev.to': { badge: 'bg-purple-600 border border-purple-700', color: 'text-purple-400', icon: <DevToIcon className="w-5 h-5" />, bgColor: 'bg-purple-600' },
+      devto: { badge: 'bg-purple-600 border border-purple-700', color: 'text-purple-400', icon: <DevToIcon className="w-5 h-5" />, bgColor: 'bg-purple-600' },
+      Threads: { badge: 'bg-gradient-to-r from-purple-500 to-pink-500 border border-purple-600', color: 'text-pink-400', icon: <ThreadsIcon className="w-5 h-5" />, bgColor: 'bg-gradient-to-br from-purple-600 to-pink-500' },
     };
     return configs[platform] || { badge: 'bg-gray-700 border border-gray-600', color: 'text-gray-400', icon: <Globe className="w-5 h-5" />, bgColor: 'bg-gray-700' };
   };
