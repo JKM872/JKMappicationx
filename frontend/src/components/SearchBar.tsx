@@ -1,11 +1,14 @@
 import { useState, useRef, forwardRef, useImperativeHandle } from 'react';
 import axios from 'axios';
 import { Post } from '../types';
-import { Flame, Calendar, CalendarDays, Globe, AlertCircle } from 'lucide-react';
+import { Flame, Calendar, CalendarDays, Globe, AlertCircle, Code } from 'lucide-react';
+import { FaXTwitter } from 'react-icons/fa6';
+import { SiReddit, SiThreads } from 'react-icons/si';
 
 interface SearchBarProps {
   onResults: (posts: Post[]) => void;
   platform?: string;
+  onPlatformChange?: (platform: string) => void;
 }
 
 export interface SearchBarHandle {
@@ -15,7 +18,7 @@ export interface SearchBarHandle {
 type RecencyFilter = 'all' | 'week' | 'month' | 'today';
 
 export const SearchBar = forwardRef<SearchBarHandle, SearchBarProps>(function SearchBar(
-  { onResults, platform: externalPlatform },
+  { onResults, platform: externalPlatform, onPlatformChange },
   ref
 ) {
   const [query, setQuery] = useState('');
@@ -23,8 +26,26 @@ export const SearchBar = forwardRef<SearchBarHandle, SearchBarProps>(function Se
   const [error, setError] = useState('');
   const [loadingStatus, setLoadingStatus] = useState('');
   const [recencyFilter, setRecencyFilter] = useState<RecencyFilter>('all');
-  const platform = externalPlatform || 'all';
+  const [selectedPlatform, setSelectedPlatform] = useState(externalPlatform || 'all');
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Sync with external platform prop
+  const platform = externalPlatform || selectedPlatform;
+
+  const platformOptions = [
+    { id: 'all', label: 'All', icon: <Globe className="w-3.5 h-3.5" /> },
+    { id: 'twitter', label: 'Twitter', icon: <FaXTwitter className="w-3.5 h-3.5" /> },
+    { id: 'reddit', label: 'Reddit', icon: <SiReddit className="w-3.5 h-3.5" /> },
+    { id: 'devto', label: 'Dev.to', icon: <Code className="w-3.5 h-3.5" /> },
+    { id: 'threads', label: 'Threads', icon: <SiThreads className="w-3.5 h-3.5" /> },
+  ];
+
+  const handlePlatformChange = (newPlatform: string) => {
+    setSelectedPlatform(newPlatform);
+    if (onPlatformChange) {
+      onPlatformChange(newPlatform);
+    }
+  };
 
   const recencyOptions = [
     { id: 'today' as RecencyFilter, label: 'Today', icon: Flame },
@@ -206,6 +227,24 @@ export const SearchBar = forwardRef<SearchBarHandle, SearchBarProps>(function Se
               }`}
           >
             <option.icon className="w-3.5 h-3.5" />
+            {option.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Platform Filter Pills */}
+      <div className="flex gap-2 flex-wrap">
+        {platformOptions.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            onClick={() => handlePlatformChange(option.id)}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all flex items-center gap-1.5 ${platform === option.id
+              ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg'
+              : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10'
+              }`}
+          >
+            {option.icon}
             {option.label}
           </button>
         ))}

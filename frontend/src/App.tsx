@@ -310,7 +310,7 @@ function App() {
                 <h2 className="text-xl font-bold mb-4 bg-gradient-to-r from-purple-300 to-blue-300 bg-clip-text text-transparent">
                   Discover Viral Content
                 </h2>
-                <SearchBar ref={searchBarRef} onResults={setPosts} platform={selectedPlatform} />
+                <SearchBar ref={searchBarRef} onResults={setPosts} platform={selectedPlatform} onPlatformChange={setSelectedPlatform} />
               </div>
               {/* Topic Tags */}
               <TopicTags
