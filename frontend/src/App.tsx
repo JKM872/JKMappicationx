@@ -98,14 +98,16 @@ function App() {
       {/* Main Container - adjusted for fixed sidebar */}
       <div className="max-w-[1280px] mx-auto flex relative z-10 ml-[240px]">
 
+
         {/* Left Sidebar - Minimal Design */}
         <div className="sidebar-minimal sticky top-0 flex-shrink-0 border-r border-white/5">
           {/* Logo */}
           <div className="sidebar-logo">
-            <div className="sidebar-logo-icon">
-              <Rocket className="w-5 h-5 text-white" />
-            </div>
-            <span className="sidebar-logo-text">Viral Hunter</span>
+            <img src="/logo-tweexly.png" alt="Tweexly" className="w-9 h-9 rounded-lg object-contain" />
+            <span className="sidebar-logo-text">
+              <span style={{ color: '#1e4a6d' }}>twee</span>
+              <span style={{ color: '#ff6b35' }}>xly</span>
+            </span>
           </div>
 
           {/* Main Navigation */}
